@@ -406,7 +406,10 @@ export default class Combat {
       let hasWall = false;
       let wallDist = Infinity;
       let wallSurface = 'concrete';
-      if (world && typeof world.raycast === 'function') {
+      const soloWallbang = !!(byPlayer &&
+        this.game.trainingAssist?.wallbang &&
+        this.game.trainingAssist?._hostPowersAllowed?.());
+      if (!soloWallbang && world && typeof world.raycast === 'function') {
         const hit = world.raycast(this._sOrigin, this._sDir, remaining);
         if (hit) {
           hasWall = true;
