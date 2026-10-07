@@ -333,8 +333,12 @@ export default class Player {
     }
 
     this._updateLook();
-    this._updateMovement(dt, phase);
-    this._updateFootsteps(dt);
+    if (game.sessionMode === 'solo' && game.trainingAssist?.fly) {
+      this._updateFly(dt);
+    } else {
+      this._updateMovement(dt, phase);
+      this._updateFootsteps(dt);
+    }
     this._applyCamera(dt);
   }
 
@@ -391,7 +395,7 @@ export default class Player {
     const P = game.config.PLAYER;
     const input = game.input;
     const v = this.velocity;
-    const moveLocked = phase === 'freeze'; // look allowed, feet frozen
+    const moveLocked = phase === 'freeze' && game.sessionMode !== 'solo'; // online freeze only; solo bot training can move immediately
 
     const down = (key) =>
       !!(input && typeof input.isDown === 'function' && input.isDown(key));
@@ -537,6 +541,44 @@ export default class Player {
     }
 
     this.moveSpeed2D = Math.hypot(v.x, v.z);
+  }
+
+  _updateFly(dt) {
+    const input = this.game.input;
+    const down = (key) => !!(input && typeof input.isDown === 'function' && input.isDown(key));
+
+    let forward = 0;
+    let side = 0;
+    let vertical = 0;
+    if (down('w')) forward += 1;
+    if (down('s')) forward -= 1;
+    if (down('d')) side += 1;
+    if (down('a')) side -= 1;
+    if (down(' ')) vertical += 1;
+    if (down('control')) vertical -= 1;
+
+    _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
+    _right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
+    _wish.set(0, vertical, 0)
+      .addScaledVector(_fwd, forward)
+      .addScaledVector(_right, side);
+
+    const mag = _wish.length();
+    const speed = down('shift') ? 14 : 8;
+    if (mag > 1e-4) {
+      _wish.multiplyScalar(1 / mag);
+      this.position.addScaledVector(_wish, speed * Math.max(0, dt || 0));
+      this.moveSpeed2D = Math.hypot(_wish.x, _wish.z) * speed;
+    } else {
+      this.moveSpeed2D = 0;
+    }
+
+    this.velocity.set(0, 0, 0);
+    this.onGround = false;
+    this.crouching = false;
+    this.walking = false;
+    this.eyeHeight = this.game.config.PLAYER.EYE_STAND;
+    this._heightCur = this.game.config.PLAYER.HEIGHT_STAND;
   }
 
   // True if the standing hitbox would clip world geometry at this position.
