@@ -511,6 +511,31 @@ export default class Input {
   }
 
   _normalizePhysicalKey(e) {
+    // Use KeyboardEvent.code for gameplay keys so WASD keeps working on
+    // Ukrainian/Russian and other non-Latin keyboard layouts.
+    const code = typeof e?.code === 'string' ? e.code : '';
+    if (/^Key[A-Z]$/.test(code)) return code.slice(3).toLowerCase();
+    if (/^Digit[0-9]$/.test(code)) return code.slice(5);
+
+    const physical = {
+      Space: ' ',
+      ShiftLeft: 'shift',
+      ShiftRight: 'shift',
+      ControlLeft: 'control',
+      ControlRight: 'control',
+      AltLeft: 'alt',
+      AltRight: 'alt',
+      Tab: 'tab',
+      Escape: 'escape',
+      Enter: 'enter',
+      Backspace: 'backspace',
+      ArrowUp: 'arrowup',
+      ArrowDown: 'arrowdown',
+      ArrowLeft: 'arrowleft',
+      ArrowRight: 'arrowright',
+    };
+    if (physical[code]) return physical[code];
+
     return normalizePhysicalKey(e?.key);
   }
 
