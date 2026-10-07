@@ -829,6 +829,16 @@ export default class HUD {
 
   _startSoloMatch() {
     this.game.sessionMode = 'solo';
+    const trainer = this.game.trainingAssist;
+    if (trainer && typeof trainer.openPreMatch === 'function') {
+      trainer.openPreMatch(() => this._launchSoloMatch());
+      return;
+    }
+    this._launchSoloMatch();
+  }
+
+  _launchSoloMatch() {
+    this.game.sessionMode = 'solo';
     // PLAY is allowed to pay the map-build cost, but it must never start the
     // round on the previously loaded arena if it beats the debounce.
     this._flushMapSelection();
