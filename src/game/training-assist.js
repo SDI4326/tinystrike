@@ -14,6 +14,8 @@ const DEFAULTS = Object.freeze({
   espNames: true,
   priority: 'crosshair',
   snap: false,
+  wallbang: false,
+  fly: false,
 });
 
 const STORAGE_KEY = 'contra-strike-training-assist-v3';
@@ -74,6 +76,11 @@ export default class TrainingAssist {
         this._syncUi();
         return;
       }
+      if (event.code === 'F9') {
+        event.preventDefault();
+        this._eliminateAll();
+        return;
+      }
       if (event.code === 'Insert') {
         event.preventDefault();
         if (!this._soloOnly()) return;
@@ -108,6 +115,8 @@ export default class TrainingAssist {
         espNames: p.espNames !== false,
         priority: ['crosshair', 'distance', 'health'].includes(p.priority) ? p.priority : 'crosshair',
         snap: !!p.snap,
+        wallbang: !!p.wallbang,
+        fly: !!p.fly,
       };
     } catch {
       return { ...DEFAULTS };
@@ -178,7 +187,28 @@ export default class TrainingAssist {
       .ca-tabs.two { grid-template-columns:repeat(2,1fr); }
       .ca-tab { border:1px solid rgba(255,255,255,.10); border-radius:9px; padding:9px 8px; background:rgba(255,255,255,.045); color:#dce7c7; cursor:pointer; font-weight:850; font-size:11px; }
       .ca-tab.active { border-color:rgba(189,224,115,.65); background:rgba(189,224,115,.14); color:#efffd2; }
+      .ca-action { width:100%; border:1px solid rgba(226,98,72,.7); border-radius:10px; padding:11px 12px; background:linear-gradient(180deg,rgba(110,28,20,.72),rgba(63,13,10,.82)); color:#ffd6cb; font-weight:900; letter-spacing:.09em; cursor:pointer; }
+      .ca-action:hover { background:linear-gradient(180deg,rgba(140,36,25,.82),rgba(76,16,11,.9)); }
       .ca-note { border-top:1px solid rgba(255,255,255,.07); padding-top:11px; color:rgba(237,245,218,.48); font-size:10px; line-height:1.45; }
+      #contra-prematch { position:fixed; inset:0; z-index:310; display:none; place-items:center; background:radial-gradient(circle at 50% 42%,rgba(42,54,28,.18),rgba(0,0,0,.92) 58%,rgba(0,0,0,.98)); pointer-events:auto; }
+      #contra-prematch.open { display:grid; }
+      .cp-shell { width:min(720px,calc(100vw - 28px)); max-height:calc(100vh - 28px); overflow:auto; border:1px solid rgba(189,224,115,.42); border-radius:18px; background:linear-gradient(180deg,rgba(13,17,14,.985),rgba(4,7,5,.995)); box-shadow:0 34px 120px rgba(0,0,0,.75); color:#eef6da; font:700 13px/1.35 Arial,sans-serif; }
+      .cp-head { padding:22px 24px 17px; border-bottom:1px solid rgba(255,255,255,.08); }
+      .cp-kicker { color:#a9c46c; font-size:10px; letter-spacing:.2em; font-weight:900; }
+      .cp-title { margin-top:5px; font-size:28px; font-weight:950; letter-spacing:.08em; }
+      .cp-desc { margin-top:6px; color:rgba(238,246,218,.55); font-size:11px; }
+      .cp-list { padding:16px 24px 4px; display:grid; gap:9px; }
+      .cp-row { display:grid; grid-template-columns:1fr auto; gap:18px; align-items:center; min-height:52px; padding:9px 12px; border:1px solid rgba(255,255,255,.07); border-radius:11px; background:rgba(255,255,255,.025); }
+      .cp-copy strong { display:block; font-size:13px; letter-spacing:.055em; }
+      .cp-copy small { display:block; margin-top:3px; color:rgba(238,246,218,.44); font-size:9px; font-weight:650; }
+      .cp-select { display:grid; grid-template-columns:34px 58px 34px; align-items:center; gap:6px; }
+      .cp-arrow { height:32px; border:1px solid rgba(189,224,115,.25); border-radius:8px; background:rgba(189,224,115,.07); color:#eaf5cf; font-weight:900; cursor:pointer; }
+      .cp-value { text-align:center; font-size:11px; font-weight:950; letter-spacing:.08em; color:#81906a; }
+      .cp-value.on { color:#dfff9e; }
+      .cp-actions { display:grid; grid-template-columns:1fr 2fr; gap:10px; padding:18px 24px 24px; }
+      .cp-btn { min-height:48px; border-radius:11px; border:1px solid rgba(255,255,255,.10); background:rgba(255,255,255,.045); color:#dfe9cc; font-weight:900; letter-spacing:.09em; cursor:pointer; }
+      .cp-btn.start { border-color:rgba(189,224,115,.62); background:linear-gradient(180deg,rgba(119,154,65,.38),rgba(58,78,34,.54)); color:#efffd2; }
+      .cp-foot { padding:0 24px 18px; color:rgba(238,246,218,.38); font-size:9px; letter-spacing:.04em; }
       #contra-fov-ring { position:fixed; z-index:68; left:50%; top:50%; transform:translate(-50%,-50%); border:1px solid rgba(196,235,119,.36); border-radius:50%; pointer-events:none; box-shadow:0 0 18px rgba(196,235,119,.06) inset; }
       #contra-target-dot { position:fixed; z-index:72; width:8px; height:8px; margin:-4px 0 0 -4px; border-radius:50%; border:1px solid rgba(255,255,255,.9); background:rgba(189,224,115,.7); pointer-events:none; display:none; }
       #contra-hit-feedback { position:fixed; z-index:95; left:50%; top:56%; transform:translate(-50%,-50%) scale(.92); opacity:0; pointer-events:none; padding:5px 9px; border-radius:7px; background:rgba(0,0,0,.48); color:#fff; font:900 13px/1 Arial,sans-serif; letter-spacing:.08em; text-shadow:0 1px 4px #000; transition:opacity .08s ease, transform .08s ease; }
@@ -213,6 +243,29 @@ export default class TrainingAssist {
     espLayer.id = 'contra-esp-layer';
     document.body.appendChild(espLayer);
 
+    const prematch = document.createElement('div');
+    prematch.id = 'contra-prematch';
+    prematch.innerHTML = `
+      <div class="cp-shell">
+        <div class="cp-head">
+          <div class="cp-kicker">SOLO TRAINING CONFIGURATION</div>
+          <div class="cp-title">TRAINER LOADOUT</div>
+          <div class="cp-desc">Use the arrows to choose what is active before the match starts.</div>
+        </div>
+        <div class="cp-list">
+          <div class="cp-row" data-pm-prop="enabled"><div class="cp-copy"><strong>AIM LOCK</strong><small>Locks onto visible enemy bots.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">ON</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="perfectShot"><div class="cp-copy"><strong>PERFECT SHOT</strong><small>Removes shot spread against the selected bot.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">ON</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="noRecoil"><div class="cp-copy"><strong>NO RECOIL</strong><small>Removes ballistic drift and view kick.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">ON</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="triggerbot"><div class="cp-copy"><strong>TRIGGERBOT</strong><small>Fires automatically when aim is on target.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">OFF</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="esp"><div class="cp-copy"><strong>ESP</strong><small>Shows enemy bot boxes, HP, names and distance.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">ON</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="wallbang"><div class="cp-copy"><strong>WALLBANG</strong><small>Your bullets ignore map walls in Solo.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">OFF</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+          <div class="cp-row" data-pm-prop="fly"><div class="cp-copy"><strong>FLY</strong><small>WASD fly · Space up · Ctrl down · Shift boost.</small></div><div class="cp-select"><button class="cp-arrow" data-dir="-1">◀</button><span class="cp-value">OFF</span><button class="cp-arrow" data-dir="1">▶</button></div></div>
+        </div>
+        <div class="cp-actions"><button class="cp-btn" data-role="pm-back">BACK</button><button class="cp-btn start" data-role="pm-start">START MATCH</button></div>
+        <div class="cp-foot">During the match: INSERT trainer menu · F6 aim · F7 trigger · F8 ESP · F9 eliminate all enemy bots.</div>
+      </div>`;
+    document.body.appendChild(prematch);
+
     const panel = document.createElement('div');
     panel.id = 'contra-aim-panel';
     panel.innerHTML = `
@@ -239,6 +292,9 @@ export default class TrainingAssist {
         <div class="ca-line"><div><div class="ca-label">TRIGGERBOT</div><div class="ca-sub">F7 QUICK TOGGLE</div></div><button class="ca-toggle" data-role="triggerbot"></button></div>
         <div class="ca-line"><div class="ca-label">PERFECT SHOT</div><button class="ca-toggle" data-role="perfect-shot"></button></div>
         <div class="ca-line"><div class="ca-label">NO RECOIL</div><button class="ca-toggle" data-role="no-recoil"></button></div>
+        <div class="ca-line"><div class="ca-label">WALLBANG</div><button class="ca-toggle" data-role="wallbang"></button></div>
+        <div class="ca-line"><div class="ca-label">FLY</div><button class="ca-toggle" data-role="fly"></button></div>
+        <button class="ca-action" data-role="eliminate-all" type="button">ELIMINATE ALL ENEMY BOTS · F9</button>
 
         <div class="ca-section">VISUALS</div>
         <div class="ca-line"><div><div class="ca-label">ESP</div><div class="ca-sub">F8 QUICK TOGGLE</div></div><button class="ca-toggle" data-role="esp"></button></div>
@@ -251,8 +307,12 @@ export default class TrainingAssist {
     root.appendChild(panel);
 
     const q = (selector) => panel.querySelector(selector);
+    const qp = (selector) => prematch.querySelector(selector);
     const ui = {
-      chip, ring, dot, hit, espLayer, panel,
+      chip, ring, dot, hit, espLayer, panel, prematch,
+      pmRows: [...prematch.querySelectorAll('[data-pm-prop]')],
+      pmBack: qp('[data-role="pm-back"]'),
+      pmStart: qp('[data-role="pm-start"]'),
       close: q('.ca-close'),
       enabled: q('[data-role="enabled"]'),
       sticky: q('[data-role="sticky"]'),
@@ -260,6 +320,9 @@ export default class TrainingAssist {
       triggerbot: q('[data-role="triggerbot"]'),
       perfectShot: q('[data-role="perfect-shot"]'),
       noRecoil: q('[data-role="no-recoil"]'),
+      wallbang: q('[data-role="wallbang"]'),
+      fly: q('[data-role="fly"]'),
+      eliminateAll: q('[data-role="eliminate-all"]'),
       esp: q('[data-role="esp"]'),
       espNames: q('[data-role="esp-names"]'),
       showFov: q('[data-role="show-fov"]'),
@@ -284,6 +347,9 @@ export default class TrainingAssist {
     bindToggle(ui.triggerbot, 'triggerbot');
     bindToggle(ui.perfectShot, 'perfectShot');
     bindToggle(ui.noRecoil, 'noRecoil');
+    bindToggle(ui.wallbang, 'wallbang');
+    bindToggle(ui.fly, 'fly');
+    ui.eliminateAll.addEventListener('click', () => this._eliminateAll());
     bindToggle(ui.esp, 'esp');
     bindToggle(ui.espNames, 'espNames');
     bindToggle(ui.showFov, 'showFov');
@@ -311,10 +377,67 @@ export default class TrainingAssist {
       this._syncUi();
     });
 
+    for (const row of ui.pmRows) {
+      for (const button of row.querySelectorAll('.cp-arrow')) {
+        button.addEventListener('click', () => {
+          const prop = row.dataset.pmProp;
+          if (prop === 'enabled') this.enabled = !this.enabled;
+          else if (prop === 'perfectShot') this.perfectShot = !this.perfectShot;
+          else if (prop === 'noRecoil') this.noRecoil = !this.noRecoil;
+          else if (prop === 'triggerbot') this.triggerbot = !this.triggerbot;
+          else if (prop === 'esp') this.esp = !this.esp;
+          else if (prop === 'wallbang') this.wallbang = !this.wallbang;
+          else if (prop === 'fly') this.fly = !this.fly;
+          this._saveSettings();
+          this._syncPreMatch();
+          this._syncUi();
+        });
+      }
+    }
+    ui.pmBack.addEventListener('click', () => this.closePreMatch());
+    ui.pmStart.addEventListener('click', () => {
+      const start = this._prematchStartCallback;
+      this.closePreMatch();
+      if (typeof start === 'function') start();
+    });
+
     panel.addEventListener('mousedown', (event) => event.stopPropagation());
     panel.addEventListener('click', (event) => event.stopPropagation());
 
     return ui;
+  }
+
+  openPreMatch(onStart) {
+    if (this.game.multiplayer?.active) return false;
+    this._prematchStartCallback = onStart;
+    this.game.sessionMode = 'solo';
+    this._syncPreMatch();
+    this._ui.prematch.classList.add('open');
+    return true;
+  }
+
+  closePreMatch() {
+    this._ui.prematch.classList.remove('open');
+  }
+
+  _syncPreMatch() {
+    const rows = this._ui?.pmRows || [];
+    for (const row of rows) {
+      const prop = row.dataset.pmProp;
+      let on = false;
+      if (prop === 'enabled') on = !!this.enabled;
+      else if (prop === 'perfectShot') on = !!this.perfectShot;
+      else if (prop === 'noRecoil') on = !!this.noRecoil;
+      else if (prop === 'triggerbot') on = !!this.triggerbot;
+      else if (prop === 'esp') on = !!this.esp;
+      else if (prop === 'wallbang') on = !!this.wallbang;
+      else if (prop === 'fly') on = !!this.fly;
+      const value = row.querySelector('.cp-value');
+      if (value) {
+        value.textContent = on ? 'ON' : 'OFF';
+        value.classList.toggle('on', on);
+      }
+    }
   }
 
   _setMenuOpen(open) {
@@ -331,6 +454,30 @@ export default class TrainingAssist {
   _soloOnly() {
     const g = this.game;
     return g.sessionMode === 'solo' && !(g.multiplayer && g.multiplayer.active);
+  }
+
+  _eliminateAll() {
+    if (!this._soloOnly()) return false;
+    const player = this.game.player;
+    const bots = this.game.bots?.all;
+    if (!player || !Array.isArray(bots)) return false;
+    let count = 0;
+    for (const bot of bots) {
+      if (!this._isEnemy(bot) || typeof bot.takeDamage !== 'function') continue;
+      bot.takeDamage(100000, {
+        from: player,
+        weapon: this.game.weapons?.currentId || 'trainer',
+        headshot: true,
+        part: 'head',
+      });
+      count++;
+    }
+    if (count > 0 && this._ui?.hit) {
+      this._ui.hit.textContent = 'ELIMINATED ' + count + ' BOTS';
+      this._ui.hit.classList.add('show', 'kill');
+      this._hitTimer = 0.8;
+    }
+    return count > 0;
   }
 
   _isEnemy(bot) {
@@ -387,14 +534,14 @@ export default class TrainingAssist {
 
     if (this.sticky && this.target) {
       const sticky = this._solution(this.target);
-      if (sticky && sticky.visible && sticky.angle <= this.fov * 1.35) return sticky;
+      if (sticky && (sticky.visible || this.wallbang) && sticky.angle <= this.fov * 1.35) return sticky;
     }
 
     let best = null;
     let bestScore = Infinity;
     for (const bot of bots) {
       const sol = this._solution(bot);
-      if (!sol || !sol.visible || sol.angle > this.fov) continue;
+      if (!sol || (!sol.visible && !this.wallbang) || sol.angle > this.fov) continue;
       const score = this._score(sol);
       if (score < bestScore) {
         bestScore = score;
@@ -420,7 +567,7 @@ export default class TrainingAssist {
   }
 
   _tryTrigger(sol) {
-    if (!this.triggerbot || !sol || !sol.visible) return;
+    if (!this.triggerbot || !sol || (!sol.visible && !this.wallbang)) return;
     if (!['live', 'planted'].includes(this.game.state.phase)) return;
     const threshold = this.targetZone === 'head' ? 0.010 : 0.014;
     if (sol.angle > threshold) return;
@@ -527,6 +674,8 @@ export default class TrainingAssist {
       [ui.triggerbot, this.triggerbot],
       [ui.perfectShot, this.perfectShot],
       [ui.noRecoil, this.noRecoil],
+      [ui.wallbang, this.wallbang],
+      [ui.fly, this.fly],
       [ui.esp, this.esp],
       [ui.espNames, this.espNames],
       [ui.showFov, this.showFov],
