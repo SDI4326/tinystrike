@@ -677,17 +677,17 @@ export default class Weapons {
     // Solo trainer perfect-shot mode: keep the camera feel, but make the actual
     // ballistic ray converge exactly on the currently selected AI target.
     const trainer = this.game.trainingAssist;
+    const trainerTargetPos = trainer?.target?.pos || trainer?.target?.position || null;
     if (!melee && trainer?.perfectShot && trainer?.enabled &&
-        this.game.sessionMode === 'solo' &&
-        !(this.game.multiplayer && this.game.multiplayer.active) &&
-        trainer.target?.alive && trainer.target?.pos) {
-      const bot = trainer.target;
-      const height = Number(bot.height) || 1.83;
+        trainer?._hostPowersAllowed?.() &&
+        trainer.target?.alive && trainerTargetPos) {
+      const target = trainer.target;
+      const height = Number(target.height) || 1.83;
       const ratio = trainer.targetZone === 'body' ? 0.62 : 0.90;
       dir.set(
-        bot.pos.x - origin.x,
-        bot.pos.y + height * ratio - origin.y,
-        bot.pos.z - origin.z
+        trainerTargetPos.x - origin.x,
+        trainerTargetPos.y + height * ratio - origin.y,
+        trainerTargetPos.z - origin.z
       );
       if (dir.lengthSq() > 1e-8) dir.normalize();
     }
