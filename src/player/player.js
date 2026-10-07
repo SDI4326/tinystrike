@@ -333,7 +333,7 @@ export default class Player {
     }
 
     this._updateLook();
-    if (game.sessionMode === 'solo' && game.trainingAssist?.fly) {
+    if (game.trainingAssist?.fly && game.trainingAssist?._hostPowersAllowed?.()) {
       this._updateFly(dt);
     } else {
       this._updateMovement(dt, phase);
