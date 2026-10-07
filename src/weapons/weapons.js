@@ -346,11 +346,36 @@ export default class Weapons {
     this._everReset = true;
 
     if (fresh) {
-      const pistolId = this.game.player && this.game.player.team === 't' ? 'glock' : 'usp';
-      this.slots = { 1: null, 2: pistolId, 3: 'knife', 4: [] };
-      this.ammo = {};
-      const pistol = WEAPONS[pistolId];
-      this.ammo[pistolId] = { mag: pistol.magSize, reserve: pistol.reserve };
+      const player = this.game.player;
+      const pistolId = player && player.team === 't' ? 'glock' : 'usp';
+
+      if (this.game.sessionMode === 'solo') {
+        const rifleId = player && player.team === 't' ? 'ak47' : 'm4a1';
+        this.slots = {
+          1: rifleId,
+          2: pistolId,
+          3: 'knife',
+          4: ['hegrenade', 'flashbang', 'smokegrenade'],
+        };
+        this.ammo = {};
+        for (const id of [rifleId, pistolId, 'hegrenade', 'flashbang', 'smokegrenade']) {
+          const def = WEAPONS[id];
+          if (!def) continue;
+          this.ammo[id] = {
+            mag: def.slot === 4 ? 1 : def.magSize,
+            reserve: def.slot === 4 ? 0 : def.reserve,
+          };
+        }
+        if (player) {
+          player.armor = 100;
+          player.hasKit = player.team === 'ct';
+        }
+      } else {
+        this.slots = { 1: null, 2: pistolId, 3: 'knife', 4: [] };
+        this.ammo = {};
+        const pistol = WEAPONS[pistolId];
+        this.ammo[pistolId] = { mag: pistol.magSize, reserve: pistol.reserve };
+      }
     } else {
       const s1 = this.slots[1];
       const s2 = this.slots[2];
@@ -387,7 +412,7 @@ export default class Weapons {
     }
 
     const target = fresh
-      ? this.slots[2] || 'knife'
+      ? (this.game.sessionMode === 'solo' ? (this.slots[1] || this.slots[2] || 'knife') : (this.slots[2] || 'knife'))
       : this.owns(this.currentId)
         ? this.currentId
         : this.slots[1] || this.slots[2] || 'knife';
