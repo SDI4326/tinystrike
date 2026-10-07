@@ -568,7 +568,7 @@ export default class Combat {
     // Player hit feedback — bot targets only ('bot:death' fires synchronously
     // inside takeDamage, so `alive` is already settled here).
     if (byPlayer && !isPlayer) {
-      this.game.events.emit('hud:hitmarker', { headshot, kill: !target.alive });
+      this.game.events.emit('hud:hitmarker', { headshot, kill: !target.alive, damage: dmg, part });
     }
   }
 
