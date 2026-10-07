@@ -9,6 +9,7 @@ const DEFAULTS = Object.freeze({
   sticky: true,
   triggerbot: false,
   noRecoil: true,
+  perfectShot: true,
   esp: true,
   espNames: true,
   priority: 'crosshair',
@@ -102,6 +103,7 @@ export default class TrainingAssist {
         sticky: p.sticky !== false,
         triggerbot: !!p.triggerbot,
         noRecoil: p.noRecoil !== false,
+        perfectShot: p.perfectShot !== false,
         esp: p.esp !== false,
         espNames: p.espNames !== false,
         priority: ['crosshair', 'distance', 'health'].includes(p.priority) ? p.priority : 'crosshair',
@@ -123,6 +125,7 @@ export default class TrainingAssist {
         sticky: this.sticky,
         triggerbot: this.triggerbot,
         noRecoil: this.noRecoil,
+        perfectShot: this.perfectShot,
         esp: this.esp,
         espNames: this.espNames,
         priority: this.priority,
@@ -234,6 +237,7 @@ export default class TrainingAssist {
 
         <div class="ca-section">COMBAT</div>
         <div class="ca-line"><div><div class="ca-label">TRIGGERBOT</div><div class="ca-sub">F7 QUICK TOGGLE</div></div><button class="ca-toggle" data-role="triggerbot"></button></div>
+        <div class="ca-line"><div class="ca-label">PERFECT SHOT</div><button class="ca-toggle" data-role="perfect-shot"></button></div>
         <div class="ca-line"><div class="ca-label">NO RECOIL</div><button class="ca-toggle" data-role="no-recoil"></button></div>
 
         <div class="ca-section">VISUALS</div>
@@ -254,6 +258,7 @@ export default class TrainingAssist {
       sticky: q('[data-role="sticky"]'),
       snap: q('[data-role="snap"]'),
       triggerbot: q('[data-role="triggerbot"]'),
+      perfectShot: q('[data-role="perfect-shot"]'),
       noRecoil: q('[data-role="no-recoil"]'),
       esp: q('[data-role="esp"]'),
       espNames: q('[data-role="esp-names"]'),
@@ -277,6 +282,7 @@ export default class TrainingAssist {
     bindToggle(ui.sticky, 'sticky');
     bindToggle(ui.snap, 'snap');
     bindToggle(ui.triggerbot, 'triggerbot');
+    bindToggle(ui.perfectShot, 'perfectShot');
     bindToggle(ui.noRecoil, 'noRecoil');
     bindToggle(ui.esp, 'esp');
     bindToggle(ui.espNames, 'espNames');
@@ -316,6 +322,8 @@ export default class TrainingAssist {
     this._ui?.panel?.classList.toggle('open', this.menuOpen);
     if (this.menuOpen && document.pointerLockElement) {
       document.exitPointerLock?.();
+    } else if (!this.menuOpen && this._soloOnly() && this.game.state.phase !== 'menu') {
+      this.game.input?.requestLock?.();
     }
     this._syncUi();
   }
@@ -517,6 +525,7 @@ export default class TrainingAssist {
       [ui.sticky, this.sticky],
       [ui.snap, this.snap],
       [ui.triggerbot, this.triggerbot],
+      [ui.perfectShot, this.perfectShot],
       [ui.noRecoil, this.noRecoil],
       [ui.esp, this.esp],
       [ui.espNames, this.espNames],
