@@ -1,5 +1,5 @@
 {
-  "name": "tiny-strike",
+  "name": "contra-strike",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -20,14 +20,14 @@
   ],
   "author": "Guy Zyskind",
   "license": "ISC",
-  "description": "Open-source tactical browser FPS with solo, bot, and online multiplayer modes",
-  "homepage": "https://guyzyskind.com/tinystrike/",
+  "description": "Contra Strike — tactical browser FPS with solo bot training and online multiplayer",
+  "homepage": "https://github.com/SDI4326/tinystrike",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/guyz/tinystrike.git"
+    "url": "git+https://github.com/SDI4326/tinystrike.git"
   },
   "bugs": {
-    "url": "https://github.com/guyz/tinystrike/issues"
+    "url": "https://github.com/SDI4326/tinystrike/issues"
   },
   "dependencies": {
     "three": "^0.166.1",
