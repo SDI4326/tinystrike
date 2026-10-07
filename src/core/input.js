@@ -99,6 +99,7 @@ export default class Input {
 
     // --- private state ----------------------------------------------------
     this._down = new Set();          // normalized keys currently held
+    this._soloPhysicalDown = new Set(); // hard fallback for physical solo movement keys
     this._virtualDown = new Set();   // keys held by on-screen controls
     this._justPressed = new Set();   // pressed since last update() (one-frame)
     this._virtualJustPressed = new Set(); // touch-owned edges (for cancellation)
@@ -165,7 +166,8 @@ export default class Input {
 
   /** True while `key` (normalized: 'w', ' ', 'shift', 'control', ...) is held. */
   isDown(key) {
-    return this._down.has(key) || this._virtualDown.has(key);
+    return this._down.has(key) || this._virtualDown.has(key) ||
+      (this.game?.sessionMode === 'solo' && this._soloPhysicalDown.has(key));
   }
 
   /** True only until this frame's update() clears the keydown edge. */
@@ -428,6 +430,12 @@ export default class Input {
     const physicalKey = this._normalizePhysicalKey(e);
     if (physicalKey === null) return;
 
+    if (this.game?.sessionMode === 'solo' &&
+        (physicalKey === 'w' || physicalKey === 'a' || physicalKey === 's' || physicalKey === 'd' ||
+         physicalKey === ' ' || physicalKey === 'shift' || physicalKey === 'control')) {
+      this._soloPhysicalDown.add(physicalKey);
+    }
+
     if (this._keyCapture) {
       if (typeof e.preventDefault === 'function') e.preventDefault();
       if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
@@ -495,6 +503,7 @@ export default class Input {
   _onKeyUp(e) {
     const physicalKey = this._normalizePhysicalKey(e);
     if (physicalKey === null) return;
+    this._soloPhysicalDown.delete(physicalKey);
     const key = this._resolveHardwareKey(physicalKey);
     if (key === null) return;
     this._down.delete(key);
@@ -540,6 +549,17 @@ export default class Input {
   }
 
   _resolveHardwareKey(physicalKey) {
+    // Solo training must always remain playable even if old/custom bindings
+    // stored in localStorage are broken. Physical movement keys are canonical.
+    if (this.game?.sessionMode === 'solo') {
+      if (physicalKey === 'w' || physicalKey === 'a' || physicalKey === 's' || physicalKey === 'd') {
+        return physicalKey;
+      }
+      if (physicalKey === ' ' || physicalKey === 'shift' || physicalKey === 'control') {
+        return physicalKey;
+      }
+    }
+
     const settings = this.game?.settings;
     if (settings && typeof settings.resolveInputKey === 'function') {
       return settings.resolveInputKey(physicalKey);
@@ -737,6 +757,7 @@ export default class Input {
 
   _releaseHardwareKeys() {
     this._down.clear();
+    this._soloPhysicalDown.clear();
     for (const key of [...this._justPressed]) {
       if (!this._virtualJustPressed.has(key)) this._justPressed.delete(key);
     }
