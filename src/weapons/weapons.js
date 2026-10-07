@@ -674,6 +674,24 @@ export default class Weapons {
     const dir = new THREE.Vector3(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp);
     const origin = player.eyePos().clone();
 
+    // Solo trainer perfect-shot mode: keep the camera feel, but make the actual
+    // ballistic ray converge exactly on the currently selected AI target.
+    const trainer = this.game.trainingAssist;
+    if (!melee && trainer?.perfectShot && trainer?.enabled &&
+        this.game.sessionMode === 'solo' &&
+        !(this.game.multiplayer && this.game.multiplayer.active) &&
+        trainer.target?.alive && trainer.target?.pos) {
+      const bot = trainer.target;
+      const height = Number(bot.height) || 1.83;
+      const ratio = trainer.targetZone === 'body' ? 0.62 : 0.90;
+      dir.set(
+        bot.pos.x - origin.x,
+        bot.pos.y + height * ratio - origin.y,
+        bot.pos.z - origin.z
+      );
+      if (dir.lengthSq() > 1e-8) dir.normalize();
+    }
+
     const payload = { weaponId: def.id, origin: origin, dir: dir, byPlayer: true };
     if (melee) payload.melee = true;
     this.game.events.emit('weapon:fire', payload);
