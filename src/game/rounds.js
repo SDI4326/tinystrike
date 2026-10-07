@@ -510,7 +510,7 @@ export default class Rounds {
 
     s.round += 1;
     s.phase = 'freeze';
-    s.timer = cfg.MATCH.FREEZE_TIME;
+    s.timer = this.game.sessionMode === 'solo' ? 1.0 : cfg.MATCH.FREEZE_TIME;
     this._liveElapsed = 0;
 
     // Reset bomb + defuse bookkeeping.
@@ -617,7 +617,7 @@ export default class Rounds {
     }
 
     s.phase = 'roundEnd';
-    s.timer = this.game.config.MATCH.ROUND_END_TIME;
+    s.timer = this.game.sessionMode === 'solo' ? 2.0 : this.game.config.MATCH.ROUND_END_TIME;
     s.canBuy = false;
     s.bomb.defusingBy = null;
 
