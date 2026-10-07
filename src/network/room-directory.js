@@ -91,7 +91,7 @@ export async function fetchRoomDirectory(options = {}) {
   const response = await fetchImpl(endpoint, {
     method: 'GET',
     headers: { Accept: 'application/json' },
-    credentials: 'omit',
+    credentials: 'same-origin',
     cache: 'no-store',
     signal: options.signal,
   });
