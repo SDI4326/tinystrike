@@ -9,6 +9,7 @@ import {
   resolveHumanPlayerName,
 } from '../player/profile.js';
 import { resolveWebSocketEndpoint } from './endpoints.js';
+import P2PRoomSocket from './p2p-room-socket.js';
 import {
   fetchRoomDirectory,
   roomPresentation,
@@ -426,7 +427,9 @@ export default class Multiplayer {
 
     let socket;
     try {
-      socket = new WebSocket(endpoint);
+      socket = hello?.mode === 'humans'
+        ? new P2PRoomSocket()
+        : new WebSocket(endpoint);
     } catch {
       if (reconnecting) this._scheduleReconnect();
       else this._status('Could not reach the online service.', true);
@@ -2374,7 +2377,7 @@ export default class Multiplayer {
             <label class="mp-field-label" for="mp-name">CALLSIGN</label>
             <div class="mp-row"><input id="mp-name" maxlength="20" value="${savedName.replace(/[<&\"]/g, '')}" placeholder="Callsign" autocomplete="nickname"></div>
             <div class="mp-row">
-              <select id="mp-mode" aria-label="Room mode"><option value="mixed">HUMANS + BOTS</option><option value="humans">HUMANS ONLY</option></select>
+              <select id="mp-mode" aria-label="Room mode"><option value="humans">HUMANS ONLY · P2P</option></select>
               <input id="mp-room" maxlength="6" placeholder="ROOM CODE" aria-label="Room code" autocomplete="off">
             </div>
             <div class="mp-actions"><button id="mp-create" type="button">CREATE ROOM</button><button id="mp-join" type="button">JOIN CODE</button></div>
