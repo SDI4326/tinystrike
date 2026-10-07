@@ -54,6 +54,12 @@ export default class TrainingAssist {
 
     this._onKeyDown = (event) => {
       if (event.repeat) return;
+      const mp = this.game.multiplayer;
+      const powerKey = event.code === 'F6' || event.code === 'F7' || event.code === 'F8' || event.code === 'F9' || event.code === 'Insert';
+      if (powerKey && mp?.connected && mp.mode === 'humans' && !mp.isHost) {
+        event.preventDefault();
+        return;
+      }
 
       if (event.code === 'F6') {
         event.preventDefault();
@@ -155,6 +161,8 @@ export default class TrainingAssist {
         text-transform:uppercase; box-shadow:0 10px 30px rgba(0,0,0,.38);
         backdrop-filter:blur(10px); pointer-events:none;
       }
+      #contra-host-powers-banner { position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:205; display:none; padding:8px 14px; border:1px solid rgba(255,184,76,.72); border-radius:8px; background:rgba(54,28,4,.9); color:#ffd28b; font:900 11px/1 Arial,sans-serif; letter-spacing:.1em; text-transform:uppercase; box-shadow:0 8px 28px rgba(0,0,0,.38); pointer-events:none; }
+      #contra-host-powers-banner.host { border-color:rgba(189,224,115,.72); background:rgba(27,42,13,.9); color:#e5ffb5; }
       #contra-aim-panel {
         position:absolute; top:50%; left:50%; z-index:240;
         width:min(430px,calc(100vw - 24px)); max-height:min(720px,calc(100vh - 24px));
@@ -226,6 +234,10 @@ export default class TrainingAssist {
     const chip = document.createElement('div');
     chip.id = 'contra-aim-chip';
     root.appendChild(chip);
+
+    const hostBanner = document.createElement('div');
+    hostBanner.id = 'contra-host-powers-banner';
+    document.body.appendChild(hostBanner);
 
     const ring = document.createElement('div');
     ring.id = 'contra-fov-ring';
@@ -309,7 +321,7 @@ export default class TrainingAssist {
     const q = (selector) => panel.querySelector(selector);
     const qp = (selector) => prematch.querySelector(selector);
     const ui = {
-      chip, ring, dot, hit, espLayer, panel, prematch,
+      chip, hostBanner, ring, dot, hit, espLayer, panel, prematch,
       pmRows: [...prematch.querySelectorAll('[data-pm-prop]')],
       pmBack: qp('[data-role="pm-back"]'),
       pmStart: qp('[data-role="pm-start"]'),
@@ -441,11 +453,11 @@ export default class TrainingAssist {
   }
 
   _setMenuOpen(open) {
-    this.menuOpen = !!open && this._soloOnly();
+    this.menuOpen = !!open && this._hostPowersAllowed();
     this._ui?.panel?.classList.toggle('open', this.menuOpen);
     if (this.menuOpen && document.pointerLockElement) {
       document.exitPointerLock?.();
-    } else if (!this.menuOpen && this._soloOnly() && this.game.state.phase !== 'menu') {
+    } else if (!this.menuOpen && this._hostPowersAllowed() && this.game.state.phase !== 'menu') {
       this.game.input?.requestLock?.();
     }
     this._syncUi();
@@ -456,15 +468,34 @@ export default class TrainingAssist {
     return g.sessionMode === 'solo' && !(g.multiplayer && g.multiplayer.active);
   }
 
+  _moddedHumanRoom() {
+    const mp = this.game.multiplayer;
+    return !!(mp && mp.connected && mp.mode === 'humans');
+  }
+
+  _hostPowersAllowed() {
+    const mp = this.game.multiplayer;
+    return this._soloOnly() || !!(mp && mp.active && mp.mode === 'humans' && mp.isHost);
+  }
+
+  _entityPos(entity) {
+    return entity?.pos || entity?.position || null;
+  }
+
+  _targets() {
+    if (this._moddedHumanRoom()) return this.game.multiplayer?.remotePlayers || [];
+    return this.game.bots?.all || [];
+  }
+
   _eliminateAll() {
-    if (!this._soloOnly()) return false;
+    if (!this._hostPowersAllowed()) return false;
     const player = this.game.player;
-    const bots = this.game.bots?.all;
-    if (!player || !Array.isArray(bots)) return false;
+    const targets = this._targets();
+    if (!player || !Array.isArray(targets)) return false;
     let count = 0;
-    for (const bot of bots) {
-      if (!this._isEnemy(bot) || typeof bot.takeDamage !== 'function') continue;
-      bot.takeDamage(100000, {
+    for (const target of targets) {
+      if (!this._isEnemy(target) || typeof target.takeDamage !== 'function') continue;
+      target.takeDamage(100000, {
         from: player,
         weapon: this.game.weapons?.currentId || 'trainer',
         headshot: true,
@@ -473,16 +504,16 @@ export default class TrainingAssist {
       count++;
     }
     if (count > 0 && this._ui?.hit) {
-      this._ui.hit.textContent = 'ELIMINATED ' + count + ' BOTS';
+      this._ui.hit.textContent = 'ELIMINATED ' + count + ' TARGETS';
       this._ui.hit.classList.add('show', 'kill');
       this._hitTimer = 0.8;
     }
     return count > 0;
   }
 
-  _isEnemy(bot) {
+  _isEnemy(entity) {
     const p = this.game.player;
-    return !!bot && bot.alive && bot.pos && p && bot.team !== p.team;
+    return !!entity && entity.alive && this._entityPos(entity) && p && entity.team !== p.team;
   }
 
   _visible(eye, target, distance) {
@@ -496,14 +527,15 @@ export default class TrainingAssist {
     return !hit;
   }
 
-  _solution(bot) {
+  _solution(entity) {
     const p = this.game.player;
-    if (!this._isEnemy(bot) || !p) return null;
+    if (!this._isEnemy(entity) || !p) return null;
 
+    const pos = this._entityPos(entity);
     _eye.set(p.position.x, p.position.y + p.eyeHeight, p.position.z);
-    const height = Number(bot.height) || 1.83;
+    const height = Number(entity.height) || 1.83;
     const ratio = this.targetZone === 'body' ? 0.62 : 0.90;
-    _target.set(bot.pos.x, bot.pos.y + height * ratio, bot.pos.z);
+    _target.set(pos.x, pos.y + height * ratio, pos.z);
 
     const dx = _target.x - _eye.x;
     const dy = _target.y - _eye.y;
@@ -519,7 +551,7 @@ export default class TrainingAssist {
     const angle = Math.hypot(yawDiff, pitchDiff);
     const visible = this._visible(_eye, _target, distance);
 
-    return { bot, targetYaw, targetPitch, yawDiff, pitchDiff, angle, distance, visible };
+    return { bot: entity, targetYaw, targetPitch, yawDiff, pitchDiff, angle, distance, visible };
   }
 
   _score(sol) {
@@ -529,7 +561,7 @@ export default class TrainingAssist {
   }
 
   _pickTarget() {
-    const bots = this.game.bots?.all;
+    const bots = this._targets();
     if (!Array.isArray(bots)) return null;
 
     if (this.sticky && this.target) {
@@ -552,7 +584,7 @@ export default class TrainingAssist {
   }
 
   _applyNoRecoil() {
-    if (!this.noRecoil || !this._soloOnly()) return;
+    if (!this.noRecoil || !this._hostPowersAllowed()) return;
     const w = this.game.weapons;
     if (w) {
       if ('_driftP' in w) w._driftP = 0;
@@ -605,8 +637,8 @@ export default class TrainingAssist {
   }
 
   _updateEsp() {
-    const allowed = this._soloOnly() && this.esp && this.game.state.phase !== 'menu';
-    const bots = this.game.bots?.all || [];
+    const allowed = this._hostPowersAllowed() && this.esp && this.game.state.phase !== 'menu';
+    const bots = this._targets();
     const active = new Set();
 
     if (allowed) {
@@ -614,9 +646,10 @@ export default class TrainingAssist {
       for (const bot of bots) {
         if (!this._isEnemy(bot)) continue;
         active.add(bot);
+        const pos = this._entityPos(bot);
         const h = Number(bot.height) || 1.83;
-        _feet.set(bot.pos.x, bot.pos.y + 0.03, bot.pos.z);
-        _head.set(bot.pos.x, bot.pos.y + h, bot.pos.z);
+        _feet.set(pos.x, pos.y + 0.03, pos.z);
+        _head.set(pos.x, pos.y + h, pos.z);
         const a = this._projectPoint(_feet);
         const b = this._projectPoint(_head);
         const node = this._espNode(bot);
@@ -636,7 +669,7 @@ export default class TrainingAssist {
 
         const label = node.querySelector('.contra-esp-label');
         const hp = Math.max(0, Math.round(Number(bot.health) || 0));
-        const dist = player?.position ? Math.round(player.position.distanceTo(bot.pos)) : 0;
+        const dist = player?.position ? Math.round(player.position.distanceTo(this._entityPos(bot))) : 0;
         label.style.display = this.espNames ? 'block' : 'none';
         if (this.espNames) label.textContent = bot.name + ' · ' + hp + 'HP · ' + dist + 'm';
 
@@ -653,8 +686,16 @@ export default class TrainingAssist {
   _syncUi() {
     const ui = this._ui;
     if (!ui) return;
-    const allowed = this._soloOnly();
+    const allowed = this._hostPowersAllowed();
     const visible = allowed && this.game.state.phase !== 'menu';
+    const moddedHuman = this._moddedHumanRoom();
+    if (ui.hostBanner) {
+      ui.hostBanner.style.display = moddedHuman ? 'block' : 'none';
+      ui.hostBanner.classList.toggle('host', !!this.game.multiplayer?.isHost);
+      ui.hostBanner.textContent = this.game.multiplayer?.isHost
+        ? 'MODDED ROOM · HOST POWERS ENABLED · YOU ARE HOST'
+        : 'MODDED ROOM · HOST POWERS ENABLED';
+    }
 
     ui.chip.style.display = visible ? 'block' : 'none';
     ui.chip.textContent =
@@ -704,7 +745,7 @@ export default class TrainingAssist {
   }
 
   _showHitFeedback(detail = {}) {
-    if (!this._soloOnly() || !this._ui?.hit) return;
+    if (!this._hostPowersAllowed() || !this._ui?.hit) return;
     const damage = Math.max(0, Math.round(Number(detail.damage) || 0));
     const head = !!detail.headshot;
     const kill = !!detail.kill;
@@ -727,7 +768,7 @@ export default class TrainingAssist {
     this._syncUi();
     this._updateEsp();
 
-    if (!this._soloOnly()) {
+    if (!this._hostPowersAllowed()) {
       this.target = null;
       return;
     }
@@ -758,9 +799,10 @@ export default class TrainingAssist {
     }
 
     if (sol) {
+      const pos = this._entityPos(sol.bot);
       const h = Number(sol.bot.height) || 1.83;
       const ratio = this.targetZone === 'body' ? 0.62 : 0.90;
-      _target.set(sol.bot.pos.x, sol.bot.pos.y + h * ratio, sol.bot.pos.z);
+      _target.set(pos.x, pos.y + h * ratio, pos.z);
       const screen = this._projectPoint(_target);
       if (screen && this.enabled) {
         this._ui.dot.style.display = 'block';
