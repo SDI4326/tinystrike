@@ -190,7 +190,7 @@ export class IslandWorld{
  }
  collectLoot(obj){obj.alive=false;this.root.remove(obj.group);}
  harvest(node){if(!node.alive)return false;node.health--;if(node.health<=0){node.alive=false;if(node.mesh)this.root.remove(node.mesh);}return true;}
- isBlocked(x,z,radius=.5){
+ isBlocked(x,z,radius=.5,feetY=groundHeight(x,z)){
   if(Math.abs(x)>104||Math.abs(z)>104||Math.hypot(x,z)>108)return true;
   for(const c of this.colliders){
    if(c.type==='house'){
@@ -200,7 +200,8 @@ export class IslandWorld{
   }
   for(const b of this.builds){
    if(b.hp<=0)continue;
-   if(b.type==='floor'||b.type==='roof')continue;
+   if(b.type==='floor'||b.type==='roof'||b.type==='ramp')continue;
+   if(Math.abs(feetY-b.root.position.y)>3.6)continue;
    const dx=x-b.x,dz=z-b.z;
    if(b.type==='wall'){
     const along=Math.abs(dx*Math.cos(b.angle)+dz*-Math.sin(b.angle));
@@ -212,12 +213,29 @@ export class IslandWorld{
  }
  resolveXZ(position,nextX,nextZ,radius=.48){
   let x=position.x,z=position.z;
-  if(!this.isBlocked(nextX,z,radius))x=nextX;
-  if(!this.isBlocked(x,nextZ,radius))z=nextZ;
+  if(!this.isBlocked(nextX,z,radius,position.y))x=nextX;
+  if(!this.isBlocked(x,nextZ,radius,position.y))z=nextZ;
   position.x=x;position.z=z;
  }
+ // Height of buildable platforms under a player. Require a reachable step:
+ // platforms far above the player never teleport them upward.
+ walkableHeight(x,z,feetY=groundHeight(x,z)){
+  let height=groundHeight(x,z);
+  for(const b of this.builds){
+   if(b.hp<=0||b.type==='wall'||b.type==='roof')continue;
+   const dx=x-b.x,dz=z-b.z;
+   const localX=Math.cos(b.angle)*dx+Math.sin(b.angle)*dz;
+   const localZ=-Math.sin(b.angle)*dx+Math.cos(b.angle)*dz;
+   if(Math.abs(localX)>2.05||Math.abs(localZ)>(b.type==='ramp'?2.48:2.06))continue;
+   const support=b.type==='ramp'
+    ?b.root.position.y+1.45+localZ*.488+.14
+    :b.root.position.y+.26;
+   if(support>height&&support<=feetY+.64)height=support;
+  }
+  return height;
+ }
  // Building meshes and transparent preview are separate to keep collision correct.
- buildPart(type,x,z,angle=0,material='wood',ghost=false){
+ buildPart(type,x,z,angle=0,material='wood',ghost=false,level=0){
   const root=new THREE.Group();
   const materials={
    wood:{solid:C('#b18d5f'),trim:C('#e2ba7c')},
@@ -245,14 +263,14 @@ export class IslandWorld{
    for(const p of [-2,2])add(new THREE.BoxGeometry(4,.12,.12),m.trim,0,.25,p);
   }
   const gy=groundHeight(x,z);
-  root.position.set(x,gy,z);root.rotation.y=angle;
+  root.position.set(x,gy+level*3,z);root.rotation.y=angle;
   if(ghost)root.traverse(o=>{if(o.isMesh)o.renderOrder=3});
   return root;
  }
- addBuild(type,x,z,angle,mat){
-  const root=this.buildPart(type,x,z,angle,mat);
+ addBuild(type,x,z,angle,mat,level=0){
+  const root=this.buildPart(type,x,z,angle,mat,false,level);
   this.root.add(root);
-  const obj={type,x,z,angle,mat,root,hp:mat==='metal'?290:mat==='stone'?220:150,maxHp:mat==='metal'?290:mat==='stone'?220:150};
+  const obj={type,x,z,angle,mat,level,root,hp:mat==='metal'?290:mat==='stone'?220:150,maxHp:mat==='metal'?290:mat==='stone'?220:150};
   this.builds.push(obj);
   return obj;
  }
