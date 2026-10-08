@@ -207,8 +207,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.166.1/examples/jsm/"
+        "three": "./node_modules/three/build/three.module.js",
+        "three/addons/": "./node_modules/three/examples/jsm/"
       }
     }
   </script>
@@ -295,14 +295,43 @@
       globalThis.TINY_STRIKE_LOADING = Object.freeze({ setStage, waitForPaint, finish, fail });
     })();
   </script>
+  <style>
+    #quick-launch{position:fixed;inset:0;z-index:1050;display:grid;place-items:center;box-sizing:border-box;padding:18px;background:radial-gradient(ellipse at 50% 28%,#253620,#04080a 75%);font:600 14px system-ui,Arial,sans-serif;color:#e7f4dd}
+    .quick-panel{text-align:center;padding:36px 28px;border:1px solid #57794e;border-radius:12px;background:#0b130eeF;max-width:470px;box-shadow:0 20px 70px #0009}
+    .quick-title{font-size:clamp(30px,7vw,46px);font-weight:950;letter-spacing:.08em;margin:6px 0 10px}
+    .quick-copy{color:#a7bcaa;line-height:1.5;margin:0 0 24px}
+    #quick-launch-button{border:0;border-radius:8px;background:#c2e385;color:#111b12;font-size:17px;font-weight:950;padding:17px 20px;width:100%;cursor:pointer;touch-action:manipulation}
+    .quick-panel small{display:block;color:#829682;margin-top:14px;font-weight:600}
+  </style>
+  <section id="quick-launch">
+    <div class="quick-panel">
+      <div style="color:#aad58b;font-size:11px;letter-spacing:.3em">CONTRA STRIKE ONLINE</div>
+      <div class="quick-title">ИГРА С ДРУЗЬЯМИ</div>
+      <p class="quick-copy">CT vs T · онлайн-комнаты · код для друзей · режим тренировки</p>
+      <button id="quick-launch-button">▶ ЗАПУСТИТЬ ИГРУ</button>
+      <small>После запуска выбери ONLINE PLAY</small>
+    </div>
+  </section>
   <!-- TINY_STRIKE_RUNTIME_CONFIG -->
   <script type="module">
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      import('./src/main.js').catch((error) => {
-        globalThis.TINY_STRIKE_LOADING?.fail?.();
-        console.error('[boot] Contra Strike failed to initialize:', error);
-      });
-    }));
+    const launch=document.getElementById('quick-launch');
+    const button=document.getElementById('quick-launch-button');
+    const loading=document.getElementById('loading-screen');
+    if(loading)loading.style.visibility='hidden';
+    button.addEventListener('click',()=>{
+      button.disabled=true;
+      button.textContent='ЗАГРУЗКА ИГРЫ...';
+      launch.style.display='none';
+      if(loading)loading.style.visibility='visible';
+      requestAnimationFrame(()=>setTimeout(()=>{
+        import('./src/main.js').catch(error=>{
+          globalThis.TINY_STRIKE_LOADING?.fail?.();
+          const alert=document.getElementById('loading-error');
+          if(alert)alert.textContent='Ошибка загрузки: '+(error?.message||error);
+          console.error('Contra Strike boot error:',error);
+        });
+      },40));
+    },{once:true});
   </script>
 </body>
 </html>
