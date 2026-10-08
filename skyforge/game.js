@@ -120,7 +120,10 @@ function setGhost(){
  while(buildGhost.children.length)buildGhost.remove(buildGhost.children[0]);
  if(!state.buildMode)return;
  const type=['','wall','floor','ramp','roof'][state.piece]||'wall';
- buildGhost.add(world.buildPart(type,0,0,0,state.material,true,state.buildLevel));
+ const visual=world.buildPart(type,0,0,0,state.material,true,0);
+  // Fix offset bug: preview parent already applies world ground height.
+  visual.position.set(0,0,0);
+  buildGhost.add(visual);
 }
 function ghostSpot(){
  const f=flatForward(),d=5.1;
@@ -219,9 +222,18 @@ function shoot(){
  state.fireCooldown=info.fireRate;
  playerActor.shoot();
  const eye=playerEye();
- const base=forward(shotDirection);
+ // Third-person screen aim: use the actual crosshair target, not only yaw.
+ camera.getWorldDirection(shotDirection);
+ const cameraObstruction=world.raycast(camera.position,shotDirection,125);
+ let nearestScreenHit=cameraObstruction?.distance??125;
+ for(const enemy of bots){
+   if(!enemy.alive)continue;
+   const d=raySphere(camera.position,shotDirection,new THREE.Vector3(enemy.x,enemy.y+1.05,enemy.z),.68);
+   if(d!==null&&d>0&&d<nearestScreenHit)nearestScreenHit=d;
+ }
+ const aim=camera.position.clone().addScaledVector(shotDirection,nearestScreenHit);
+ const base=aim.sub(eye).normalize();
  const pellets=key==='shotgun'?8:1;
- const worldHit=world.raycast(eye,base,125);
  for(let pellet=0;pellet<pellets;pellet++){
   // Horizontal and vertical spread scale with weapon type.
   dir.copy(base).add(new THREE.Vector3(rand(-info.spread,info.spread),rand(-info.spread,info.spread),rand(-info.spread,info.spread))).normalize();
