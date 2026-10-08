@@ -302,7 +302,7 @@ function updateMovement(dt){
  const vx=strength?(f.x*w+rr.x*d)/Math.hypot(w,d):0;
  const vz=strength?(f.z*w+rr.z*d)/Math.hypot(w,d):0;
  const speed=sprint?9.0:5.9;
- world.resolveXZ(state,new Number(state.x+vx*speed*dt),new Number(state.z+vz*speed*dt),.51);
+ world.resolveXZ(state,state.x+vx*speed*dt,state.z+vz*speed*dt,.51);
  state.stepSpeed=lerp(state.stepSpeed,strength*speed,Math.min(1,dt*7));
  if((keys.has(' ')||ctrls.jump)&&state.grounded){
   state.vertical=8;state.grounded=false;
@@ -437,7 +437,7 @@ function drawMap(){
 function endMatch(victory){
  if(state.ended)return;
  state.running=false;state.paused=false;state.ended=true;
- document.exitPointerLock?.().catch(()=>{});
+ Promise.resolve(document.exitPointerLock?.()).catch(()=>{});
  $('end').style.display='grid';
  $('endLine').textContent=victory?'VICTORY ROYALE':'MATCH OVER';
  $('endTitle').innerHTML=victory?'✦ ПОБЕДА!':'ТЫ ВЫБЫЛ';
@@ -461,7 +461,7 @@ function newGame(){
 function pause(){
  if(!state.running||state.ended)return;
  state.paused=true;ctrls.fire=false;$('paused').style.display='grid';
- document.exitPointerLock?.().catch(()=>{});
+ Promise.resolve(document.exitPointerLock?.()).catch(()=>{});
 }
 function resume(){
  state.paused=false;$('paused').style.display='none';
@@ -469,7 +469,7 @@ function resume(){
 }
 function requestLock(){
  if(!state.running||state.paused||state.ended||isTouch)return;
- if(document.pointerLockElement!==renderer.domElement)renderer.domElement.requestPointerLock?.().catch(()=>safeToast('КЛИКНИ ПО ИГРЕ ДЛЯ УПРАВЛЕНИЯ МЫШЬЮ'));
+ if(document.pointerLockElement!==renderer.domElement)Promise.resolve(renderer.domElement.requestPointerLock?.()).catch(()=>safeToast('КЛИКНИ ПО ИГРЕ ДЛЯ УПРАВЛЕНИЯ МЫШЬЮ'));
 }
 $('startBtn').addEventListener('click',()=>newGame());
 $('resumeBtn').addEventListener('click',resume);
