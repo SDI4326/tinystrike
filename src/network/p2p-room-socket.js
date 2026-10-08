@@ -611,3 +611,138 @@ P2PRoomSocket.CONNECTING = CONNECTING;
 P2PRoomSocket.OPEN = OPEN;
 P2PRoomSocket.CLOSING = CLOSING;
 P2PRoomSocket.CLOSED = CLOSED;
+
+// Standalone hosting: use the public PeerJS signaling service for WebRTC
+// when the game is served outside its original Hatchable room API.
+// It preserves the existing room protocol, host authority and data channels.
+if (typeof location !== 'undefined' && !location.hostname.endsWith('.hatchable.site')) {
+  const peerServer = { host: '0.peerjs.com', port: 443, path: '/', secure: true, debug: 0 };
+  const roomPeerId = (roomCode) => 'contra-strike-x-room-' + cleanCode(roomCode);
+  const roomAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let peerjsLoader = null;
+
+  const loadPeerJs = () => {
+    if (globalThis.Peer || globalThis.peerjs?.Peer) return Promise.resolve(globalThis.Peer || globalThis.peerjs.Peer);
+    if (peerjsLoader) return peerjsLoader;
+    peerjsLoader = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js';
+      script.async = true;
+      script.onload = () => {
+        const Peer = globalThis.Peer || globalThis.peerjs?.Peer;
+        if (typeof Peer === 'function') resolve(Peer);
+        else reject(new Error('PeerJS could not initialize.'));
+      };
+      script.onerror = () => reject(new Error('Could not load the room connection library.'));
+      document.head.appendChild(script);
+    }).catch(error => { peerjsLoader = null; throw error; });
+    return peerjsLoader;
+  };
+
+  function roomCode() {
+    let text = '';
+    for (let i = 0; i < 6; i++) text += roomAlphabet[Math.floor(Math.random() * roomAlphabet.length)];
+    return text;
+  }
+
+  // PeerJS DataConnection to the small WebRTCDataChannel API the game's
+  // existing multiplayer message protocol already expects.
+  function peerChannel(connection) {
+    const channel = {
+      onopen: null, onclose: null, onerror: null, onmessage: null,
+      get readyState() { return connection.open ? 'open' : 'connecting'; },
+      send(data) { if (connection.open) connection.send(data); },
+      close() { connection.close(); },
+    };
+    connection.on('open', () => channel.onopen?.());
+    connection.on('data', (data) => channel.onmessage?.({
+      data: typeof data === 'string' ? data : JSON.stringify(data),
+    }));
+    connection.on('close', () => channel.onclose?.());
+    connection.on('error', (error) => channel.onerror?.(error));
+    return channel;
+  }
+
+  P2PRoomSocket.prototype._api = async function (path, body = null, method = 'POST') {
+    if (method === 'GET') {
+      const url = new URL(path, location.origin);
+      const code = cleanCode(url.searchParams.get('code'));
+      if (!code) throw new Error('Enter a room code.');
+      return { room: { code, host_peer: roomPeerId(code), mode: 'humans' } };
+    }
+    if (body?.action === 'create') {
+      const code = roomCode();
+      return {
+        room: { code, host_peer: roomPeerId(code), map_id: body.mapId || 'dustyard', mode: 'humans' },
+        hostSecret: 'peerjs-host',
+      };
+    }
+    return { ok: true };
+  };
+
+  P2PRoomSocket.prototype._subscribe = async function (code) {
+    const Peer = await loadPeerJs();
+    const host = this.role === 'host';
+    const localId = host ? roomPeerId(code) : undefined;
+    const peer = this._peer = localId ? new Peer(localId, peerServer) : new Peer(peerServer);
+
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Could not connect to room service. Try again.')), 12000);
+      peer.once('open', id => {
+        clearTimeout(timer);
+        this.peerId = id;
+        resolve();
+      });
+      peer.once('error', error => {
+        clearTimeout(timer);
+        reject(new Error(
+          error?.type === 'unavailable-id'
+            ? 'Room code already in use. Try creating another room.'
+            : 'Room service error: ' + (error?.message || error?.type || error)
+        ));
+      });
+    });
+
+    peer.on('error', error => {
+      if (this.readyState === OPEN)
+        this._message({ type: 'error', message: 'Online connection: ' + (error?.message || error?.type || 'unavailable') });
+    });
+
+    if (host) peer.on('connection', conn => {
+      if (this.readyState !== OPEN) { conn.close(); return; }
+      const id = conn.peer;
+      const channel = peerChannel(conn);
+      this._peers.set(id, { peerId: id, pc: null, channel });
+      this._bindHostChannel(id, channel);
+    });
+  };
+
+  // PeerJS handles the offer/answer/candidate exchange internally. The game's
+  // host-authoritative packet protocol and WebRTC data channels remain intact.
+  P2PRoomSocket.prototype._joinRoom = async function (hello) {
+    if (typeof RTCPeerConnection !== 'function') throw new Error('This browser does not support WebRTC.');
+    const code = cleanCode(hello.room);
+    if (!code) throw new Error('Enter a room code.');
+    this.role = 'guest';
+    this.roomCode = code;
+    this.hostPeer = roomPeerId(code);
+    await this._subscribe(code);
+    const conn = this._peer.connect(this.hostPeer, { reliable: true, serialization: 'json' });
+    const channel = this._guestChannel = peerChannel(conn);
+    this._bindGuestChannel(channel);
+    const timer = setTimeout(() => {
+      if (this.readyState === OPEN && !conn.open)
+        this._message({ type: 'error', message: 'Room not found. Check the code and ask the host to keep the room open.' });
+    }, 12000);
+    conn.on('open', () => clearTimeout(timer));
+    conn.on('error', () => clearTimeout(timer));
+    conn.on('close', () => clearTimeout(timer));
+  };
+
+  P2PRoomSocket.prototype._signal = async function () {};
+  const originalClose = P2PRoomSocket.prototype.close;
+  P2PRoomSocket.prototype.close = function (...args) {
+    originalClose.apply(this, args);
+    try { this._peer?.destroy(); } catch {}
+  };
+}
