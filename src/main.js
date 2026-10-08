@@ -8,6 +8,7 @@ import World from './world/map.js';
 import { MaterialSystem } from './gfx/materials/index.js';
 import { PostChain } from './gfx/post/index.js';
 import Player from './player/player.js';
+import ThirdPerson from './player/third-person.js';
 import PlayerProfile from './player/profile.js';
 import Weapons from './weapons/weapons.js';
 import ViewModel from './weapons/viewmodel.js';
@@ -184,6 +185,7 @@ game.leaderboard = new LeaderboardClient(game);
 game.hud = new HUD(game);
 game.touchControls = new TouchControls(game);
 game.multiplayer = new Multiplayer(game);
+game.thirdPerson = new ThirdPerson(game);
 loadingScreen?.setStage?.('Calibrating combat systems', 92);
 
 /**
@@ -253,5 +255,12 @@ renderer.setAnimationLoop(() => {
     if (sys && typeof sys.update === 'function') sys.update(dt);
   }
 
-  game.renderFrame();
+  // Temporary shoulder-camera transform affects drawing only; player aim
+  // and the actual weapon hit ray always use the original eye camera.
+  game.thirdPerson.beforeRender(dt);
+  try {
+    game.renderFrame();
+  } finally {
+    game.thirdPerson.afterRender();
+  }
 });
