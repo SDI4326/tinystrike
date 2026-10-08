@@ -42,7 +42,7 @@ function init(){
   state.wood=9999;state.stone=9999;state.metal=9999;state.hp=100;state.shield=100;state.remaining=0;
   for(const bot of app.bots){bot.alive=false;bot.actor.dispose();}
   app.toggleBuild(true);
-  const title=$('top').querySelector('small:last-of-type');if(title)title.textContent='СВОБОДНАЯ ИГРА';
+  const title=$('stormTime')?.parentElement?.querySelector('small');if(title)title.textContent='СВОБОДНАЯ ИГРА';
   tip('🏗 ТВОРЧЕСКИЙ РЕЖИМ · БЕЗЛИМИТНЫЕ РЕСУРСЫ');
  });
  const skinOptions=[
