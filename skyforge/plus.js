@@ -33,6 +33,18 @@ function init(){
  const cards=document.createElement('div');cards.id='pilotPick';
  const title=document.createElement('div');title.className='eyebrow';title.textContent='ВЫБЕРИ СТИЛЬ БОЙЦА';
  const start=$('startBtn');start.parentNode.insertBefore(title,start);start.parentNode.insertBefore(cards,start);
+ const creativeBtn=document.createElement('button');
+ creativeBtn.className='secondary';creativeBtn.textContent='🏗 СВОБОДНОЕ СТРОИТЕЛЬСТВО — БЕЗ БОТОВ И ШТОРМА';
+ creativeBtn.style.cssText='border:1px solid #8dfbd15c;border-radius:12px;padding:13px 16px;margin-top:12px;color:#b7ffdc;background:#123d3d;width:min(340px,100%)';
+ start.after(creativeBtn);
+ creativeBtn.addEventListener('click',()=>{
+  app.start();state.creative=true;
+  state.wood=9999;state.stone=9999;state.metal=9999;state.hp=100;state.shield=100;state.remaining=0;
+  for(const bot of app.bots){bot.alive=false;bot.actor.dispose();}
+  app.toggleBuild(true);
+  const title=$('top').querySelector('small:last-of-type');if(title)title.textContent='СВОБОДНАЯ ИГРА';
+  tip('🏗 ТВОРЧЕСКИЙ РЕЖИМ · БЕЗЛИМИТНЫЕ РЕСУРСЫ');
+ });
  const skinOptions=[
   {id:'aqua',label:'ШТУРМОВИК',accent:'#55fce0',dark:'#193f45'},
   {id:'ember',label:'ФЕНИКС',accent:'#ffb47e',dark:'#503738'},
