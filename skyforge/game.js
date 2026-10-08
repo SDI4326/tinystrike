@@ -31,7 +31,7 @@ const state={
  maxHP:100,kills:0,remaining:8,
  wood:150,stone:80,metal:40,medkit:2,
  ammo:{rifle:30,shotgun:6},reserve:{rifle:180,shotgun:42},slot:1,
- buildMode:false,piece:1,buildRotation:0,material:'wood',buildCount:0,
+ buildMode:false,piece:1,buildRotation:0,buildLevel:0,material:'wood',buildCount:0,
  elapsed:0,stormRadius:92,stormTick:0,
  reload:0,lastShot:-10,fireCooldown:0,
  jumpVel:0,animTime:0,stepSpeed:0,
@@ -120,7 +120,7 @@ function setGhost(){
  while(buildGhost.children.length)buildGhost.remove(buildGhost.children[0]);
  if(!state.buildMode)return;
  const type=['','wall','floor','ramp','roof'][state.piece]||'wall';
- buildGhost.add(world.buildPart(type,0,0,0,state.material,true));
+ buildGhost.add(world.buildPart(type,0,0,0,state.material,true,state.buildLevel));
 }
 function ghostSpot(){
  const f=flatForward(),d=5.1;
@@ -135,9 +135,9 @@ function build(){
  if(state[state.material]<cost){safeToast('НЕ ХВАТАЕТ МАТЕРИАЛОВ: ДОБУДЬ РЕСУРСЫ');return}
  if(Math.hypot(spot.x,spot.z)>102){safeToast('СЛИШКОМ ДАЛЕКО ОТ ОСТРОВА');return}
  if(world.colliders.some(c=>Math.hypot(spot.x-c.x,spot.z-c.z)<3.6&&c.type==='house')){safeToast('ЗДЕСЬ СТРОИТЬ НЕЛЬЗЯ');return}
- if(world.builds.some(b=>b.type===kind&&Math.abs(b.x-spot.x)<1&&Math.abs(b.z-spot.z)<1&&Math.abs(b.angle-spot.angle)<.2)){safeToast('ПОСТРОЙКА УЖЕ ЕСТЬ');return}
+ if(world.builds.some(b=>b.type===kind&&b.level===state.buildLevel&&Math.abs(b.x-spot.x)<1&&Math.abs(b.z-spot.z)<1&&Math.abs(b.angle-spot.angle)<.2)){safeToast('ПОСТРОЙКА УЖЕ ЕСТЬ');return}
  state[state.material]-=cost;
- world.addBuild(kind,spot.x,spot.z,spot.angle,state.material);
+ world.addBuild(kind,spot.x,spot.z,spot.angle,state.material,state.buildLevel);
  state.buildCount++;
  safeToast('✓ '+({wall:'СТЕНА',floor:'ПОЛ',ramp:'ЛЕСТНИЦА',roof:'КРЫША'}[kind])+' ПОСТРОЕНА  -'+cost,.7);
  state.fireCooldown=.15;
@@ -309,9 +309,13 @@ function updateMovement(dt){
  }
  if(!state.grounded){
   state.vertical-=21*dt;state.y+=state.vertical*dt;
-  const h=groundHeight(state.x,state.z);
-  if(state.y<=h){state.y=h;state.vertical=0;state.grounded=true;}
- }else state.y=groundHeight(state.x,state.z);
+  const h=world.walkableHeight(state.x,state.z,state.y);
+  if(state.vertical<=0&&state.y<=h){state.y=h;state.vertical=0;state.grounded=true;}
+ }else{
+  const h=world.walkableHeight(state.x,state.z,state.y);
+  if(h<state.y-.30){state.grounded=false;state.vertical=0;}
+  else state.y=h;
+ }
  state.animTime+=dt;
  playerActor.setPose({x:state.x,y:state.y,z:state.z,yaw:state.yaw,pitch:state.pitch,speed:state.stepSpeed},dt);
 }
@@ -361,7 +365,7 @@ function updateGhost(){
  if(!state.buildMode){buildGhost.visible=false;return}
  buildGhost.visible=true;
  const spot=ghostSpot();
- buildGhost.position.set(spot.x,groundHeight(spot.x,spot.z),spot.z);
+ buildGhost.position.set(spot.x,groundHeight(spot.x,spot.z)+state.buildLevel*3,spot.z);
  buildGhost.rotation.y=spot.angle;
 }
 function updateQuick(){
@@ -375,7 +379,7 @@ function updateQuick(){
   s.classList.toggle('active',state.buildMode?state.piece===i:state.slot===i);
  }
  ui.mode.textContent=state.buildMode?
-  '🏗 СТРОИТЕЛЬСТВО · '+({wood:'ДЕРЕВО',stone:'КАМЕНЬ',metal:'МЕТАЛЛ'}[state.material])+' · E — ПОВОРОТ · Z — МАТЕРИАЛ'
+  '🏗 СТРОИТЕЛЬСТВО · ЭТАЖ '+(state.buildLevel+1)+' · '+({wood:'ДЕРЕВО',stone:'КАМЕНЬ',metal:'МЕТАЛЛ'}[state.material])+' · E — ПОВОРОТ · Z — МАТЕРИАЛ'
   :'⚔ РЕЖИМ БОЯ · Q — СТРОИТЬ';
 }
 function updateHUD(){
@@ -448,7 +452,7 @@ function newGame(){
  state.x=-6;state.z=8;state.y=groundHeight(-6,8);state.yaw=.15;state.pitch=.04;state.vertical=0;state.grounded=true;
  Object.assign(state,{hp:100,shield:50,wood:150,stone:80,metal:40,kills:0,remaining:8,
  medkit:2,elapsed:0,stormRadius:92,stormTick:0,slot:1,buildMode:false,piece:1,buildRotation:0,
- material:'wood',buildCount:0,reload:0,lastShot:-10,fireCooldown:0,ended:false,paused:false,running:true});
+ material:'wood',buildLevel:0,buildCount:0,reload:0,lastShot:-10,fireCooldown:0,ended:false,paused:false,running:true});
  state.ammo={rifle:30,shotgun:6};state.reserve={rifle:180,shotgun:42};
  for(const part of [...world.builds])world.root.remove(part.root);
  world.builds.length=0;
@@ -497,6 +501,11 @@ window.addEventListener('keydown',event=>{
  if(key==='e'&&state.buildMode){state.buildRotation=(state.buildRotation+Math.PI/2)%(Math.PI*2);}
  if(key==='z'&&state.buildMode){
   const mats=['wood','stone','metal'];state.material=mats[(mats.indexOf(state.material)+1)%3];setGhost();updateQuick();
+ }
+ if(key==='c'&&state.buildMode){
+  state.buildLevel=(state.buildLevel+1)%3;
+  setGhost();safeToast('ЭТАЖ '+(state.buildLevel+1)+' · ИСПОЛЬЗУЙ ЛЕСТНИЦЫ ДЛЯ ПОДЪЁМА',1.4);
+  updateQuick();
  }
  if(key==='r')reload();
  if(key==='f')harvest();
