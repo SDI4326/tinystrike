@@ -122,6 +122,23 @@ export class ArenaWorld{
   this.stormRing=this.mesh(new THREE.RingGeometry(54.7,55.2,96),new THREE.MeshBasicMaterial({color:'#e971fb',transparent:true,opacity:.64,side:THREE.DoubleSide}),[0,.07,0]);
   this.stormRing.rotation.x=-Math.PI/2;
  }
+ // Ramp surfaces are walkable rather than solid collision boxes.
+ // Return a reachable support elevation for the character's feet.
+ getWalkableHeight(x,z,feetY){
+  let best=null;
+  for(const mesh of this.buildingBlocks){
+   const type=mesh.userData.buildType;
+   if(type!=='ramp'&&type!=='floor')continue;
+   mesh.updateMatrixWorld();
+   const inv=mesh.matrixWorld.clone().invert();
+   const local=new THREE.Vector3(x,mesh.position.y,z).applyMatrix4(inv);
+   if(Math.abs(local.x)>2.07||Math.abs(local.z)>2.07)continue;
+   const support=mesh.position.y+(type==='ramp'?-local.z:0.15);
+   if(support>feetY+.9||support<feetY-.9)continue;
+   if(best===null||support>best)best=support;
+  }
+  return best;
+ }
  getCollidableMeshes(){return this.collidableMeshes}
  registerBuildingBlock(m){this.collidableMeshes.push(m);this.buildingBlocks.push(m)}
  unregisterBuildingBlock(m){this.collidableMeshes=this.collidableMeshes.filter(x=>x!==m);this.buildingBlocks=this.buildingBlocks.filter(x=>x!==m)}
