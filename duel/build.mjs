@@ -47,6 +47,9 @@ player=patch(player,'const speed = this.isSprinting ? SPRINT_SPEED : MOVE_SPEED;
 player=patch(player,"    if (!this.isOnGround) {\n      this.velocity.y += GRAVITY * delta;\n    }",
 "    if(globalThis.SKY_DUEL_CHEATS?.fly){this.velocity.y=(this.keys['Space']?12:0)-(this.keys['KeyF']?12:0);this.isOnGround=false;}\n    else if (!this.isOnGround) {\n      this.velocity.y += GRAVITY * delta;\n    }",'flight');
 player=patch(player,'  takeDamage(amount) {\n    this.health','  takeDamage(amount) {\n    if(globalThis.SKY_DUEL_CHEATS?.god)return;\n    this.health','god mode');
+player=patch(player,"      if (mesh.name === 'ground') continue;","      if (mesh.name === 'ground' || mesh.userData?.buildType === 'ramp') continue;",'walkable ramp');
+player=patch(player,"    // World boundary",
+"    const support=world.getWalkableHeight?.(this.position.x,this.position.z,this.position.y);\n    if(support!==null&&support!==undefined&&this.velocity.y<=0){this.position.y=support;this.velocity.y=0;this.isOnGround=true;}\n    // World boundary",'ramp support');
 await writeFile(path.join(gameDir,'Player.js'),player);
 let builder=await readFile(path.join(gameDir,'Builder.js'),'utf8');
 builder=patch(builder,'const BLOCK_SIZE = 2;','const BLOCK_SIZE = 4;','build dimensions');
@@ -65,6 +68,7 @@ const transformed=[
 '  }',
 ''].join('\n');
 builder=builder.slice(0,start)+transformed+'\n'+builder.slice(end);
+builder=patch(builder,"    mesh.name = 'placed_block';","    mesh.name = 'placed_block';\n    mesh.userData.buildType=data.pieceType;",'building type');
 await writeFile(path.join(gameDir,'Builder.js'),builder);
 let weapon=await readFile(path.join(gameDir,'Weapon.js'),'utf8');
 weapon=patch(weapon,"export const WEAPON_DEFS = {\n  pistol: {",
