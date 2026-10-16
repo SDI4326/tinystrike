@@ -2,7 +2,7 @@ name: CONTACT ZERO Windows EXE
 on:
   push:
     branches:
-      - contact-zero-native-remaster
+      - contact-zero-native-v3
     paths:
       - 'native/**'
       - '.github/workflows/contact-zero-windows.yml'
@@ -40,10 +40,17 @@ jobs:
           curl -fL --retry 4 "${ORIGIN}/soldier_t.glb" -o native/assets/soldier_t.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/ak47.glb" -o native/assets/ak47.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/npc-arms-ct.glb" -o native/assets/npc-arms-ct.glb
+          for GUN in m4a1 awp deagle mp5 usp; do
+            curl -fL --retry 4 "${ORIGIN}/viewmodels/${GUN}.glb" -o "native/assets/${GUN}.glb"
+          done
       - name: Download PBR terrain, CC0 industrial props and FPS hand animations
         run: |
           set -euxo pipefail
-          mkdir -p native/assets/tex native/assets/kenney native/assets/rig native/assets/sfx
+          mkdir -p native/assets/tex native/assets/kenney native/assets/rig native/assets/sfx native/assets/city
+          CITY="https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/city-kit-commercial"
+          for NAME in a b c d e f g h i j k l m n; do
+            curl -fL --retry 4 "${CITY}/building-${NAME}.glb" -o "native/assets/city/building-${NAME}.glb"
+          done
           ART="https://raw.githubusercontent.com/petroulacl/fps-buildings-env-kit/main/environment/ground-textures/ambientcg"
           for PAIR in "Asphalt021_2K-JPG asphalt" "Concrete012_2K-JPG concrete" "Metal063_2K-JPG metal"; do
             set -- $PAIR
@@ -167,11 +174,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="contact-zero-native-windows-v2"
+          TAG="contact-zero-native-windows-v3"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --clobber --repo "${{ github.repository }}"
             if test -s native/build/CONTACT_ZERO_qa.png; then gh release upload "$TAG" native/build/CONTACT_ZERO_qa.png --clobber --repo "${{ github.repository }}"; fi
           else
-            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "CONTACT ZERO v2 remaster. PBR maps, authored Cransh CC-BY skinned AK-74M arms with animations, upgraded AI and combat effects. Native Windows. Unzip and double-click CONTACT_ZERO.exe." --repo "${{ github.repository }}"
+            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "CONTACT ZERO v3: 14 CC0 3D building models, 6 weapons, animated AK FPS hands, physics HE and smoke grenades, tactical menu, reticle, improved maps and bots. Download Windows EXE ZIP." --repo "${{ github.repository }}"
           if test -s native/build/CONTACT_ZERO_qa.png; then gh release upload "$TAG" native/build/CONTACT_ZERO_qa.png --clobber --repo "${{ github.repository }}"; fi
           fi
