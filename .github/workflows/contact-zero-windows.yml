@@ -1,0 +1,92 @@
+name: CONTACT ZERO Windows EXE
+on:
+  push:
+    branches:
+      - contact-zero-native-windows
+    paths:
+      - 'native/**'
+      - '.github/workflows/contact-zero-windows.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout native game source
+        uses: actions/checkout@v4
+      - name: Download Godot and Windows export templates
+        run: |
+          set -euxo pipefail
+          VER="4.4.1-stable"
+          ROOT="https://github.com/godotengine/godot/releases/download/${VER}"
+          curl -fL --retry 4 "${ROOT}/Godot_v${VER}_linux.x86_64.zip" -o godot-linux.zip
+          curl -fL --retry 4 "${ROOT}/Godot_v${VER}_export_templates.tpz" -o godot-templates.tpz
+          unzip -qo godot-linux.zip
+          chmod +x Godot_v${VER}_linux.x86_64
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.4.1.stable"
+          unzip -qo godot-templates.tpz 'templates/*' -d /tmp/godot-exp
+          cp /tmp/godot-exp/templates/windows_release_x86_64.exe "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+          cp /tmp/godot-exp/templates/windows_debug_x86_64.exe "$HOME/.local/share/godot/export_templates/4.4.1.stable/"
+      - name: Download permissively licensed soldier and gun models
+        run: |
+          set -euxo pipefail
+          mkdir -p native/assets
+          ORIGIN="https://raw.githubusercontent.com/SDI4326/tinystrike/main/assets/models"
+          curl -fL --retry 4 "${ORIGIN}/soldier_ct.glb" -o native/assets/soldier_ct.glb
+          curl -fL --retry 4 "${ORIGIN}/soldier_t.glb" -o native/assets/soldier_t.glb
+          curl -fL --retry 4 "${ORIGIN}/viewmodels/ak47.glb" -o native/assets/ak47.glb
+          curl -fL --retry 4 "${ORIGIN}/viewmodels/npc-arms-ct.glb" -o native/assets/npc-arms-ct.glb
+      - name: Import project and verify Godot scripts
+        run: |
+          set -euxo pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --editor --path native --import --quit 2>&1 | tee import.log
+          if grep -qE 'SCRIPT ERROR:|Parse Error:' import.log; then
+            echo "GDScript validation failed"
+            exit 1
+          fi
+      - name: Export native Windows executable
+        run: |
+          set -euxo pipefail
+          mkdir -p native/build
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path native --export-release "Windows Desktop" build/CONTACT_ZERO.exe 2>&1 | tee export.log
+          test -s native/build/CONTACT_ZERO.exe
+          file native/build/CONTACT_ZERO.exe
+          if grep -qE 'SCRIPT ERROR:|Parse Error:|ERROR: Cannot export' export.log; then exit 1; fi
+      - name: Create distribution ZIP
+        run: |
+          cat > native/build/README.txt <<'EOF'
+          CONTACT ZERO -- NATIVE WINDOWS x64
+          -------------------------------------------------
+          1. Extract this ZIP into a folder.
+          2. Double-click CONTACT_ZERO.exe.
+          3. Select the map; WASD moves, mouse aims.
+          Shoot = LMB. Aim = RMB. Reload = R.
+          Sprint = Shift. Jump = Space. Crouch = Ctrl. Menu = Esc.
+
+          No browser and no installation of Godot required.
+          Unverified Windows builds may prompt SmartScreen; this file is unsigned.
+          3D soldiers/arms adapted from Quaternius Toon Shooter Game Kit (CC0).
+          Contact Zero native game: community prototype, NOT Counter-Strike source.
+          EOF
+          (cd native/build && zip -9 -q CONTACT_ZERO_WINDOWS.zip CONTACT_ZERO.exe README.txt)
+          ls -lh native/build/*
+      - name: Upload downloadable Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: CONTACT_ZERO_WINDOWS
+          path: native/build/CONTACT_ZERO_WINDOWS.zip
+          if-no-files-found: error
+      - name: Publish public GitHub release download
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="contact-zero-native-windows-v1"
+          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            gh release upload "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --clobber --repo "${{ github.repository }}"
+          else
+            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "Godot 4.4.1 native PC prototype. Unzip and double-click CONTACT_ZERO.exe. No browser needed." --repo "${{ github.repository }}"
+          fi
