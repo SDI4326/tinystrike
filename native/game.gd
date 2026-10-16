@@ -235,10 +235,10 @@ func _scene_mesh_bounds(root:Node3D)->AABB:
     for node in root.find_children("*","MeshInstance3D",true,false):
         if not node is MeshInstance3D or node.mesh==null:continue
         var tr=Transform3D.IDENTITY
-        var obj=node
+        var obj:Node3D=node as Node3D
         while obj!=root and obj!=null:
             tr=obj.transform*tr
-            obj=obj.get_parent()
+            obj=obj.get_parent() as Node3D
         var bound=tr*node.mesh.get_aabb()
         if not has:
             collected=bound
@@ -273,7 +273,7 @@ func _make_first_person_weapon() -> void:
                 using_authored_rig=true
                 var animations=authored.find_children("*","AnimationPlayer",true,false)
                 if animations.size()>0:
-                    fps_anim=animations[0]
+                    fps_anim=animations[0] as AnimationPlayer
                 _play_rig_anim("idle")
     if not using_authored_rig:
         var old="res://assets/ak47.glb"
@@ -475,6 +475,7 @@ func _shoot() -> void:
     last_shot=game_time
     recoil=1.0
     shot_anim_ends=game_time+.16
+    fps_anim_name=""
     _play_rig_anim("shot")
     if is_instance_valid(muzzle):muzzle.light_energy=5.4
     if is_instance_valid(audio_gun) and audio_gun.stream!=null:
