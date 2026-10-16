@@ -12,10 +12,10 @@ func _capture() -> void:
     game.player.rotation.y=0.05
     game.neck.rotation.x=-.035
     var trials=[
-        {"r":Vector3(-.3,-.25,-.1),"p":Vector3(.25,-.18,-.75),"s":.70},
-        {"r":Vector3(-.4,-.10,-.1),"p":Vector3(.27,-.20,-.79),"s":.70},
-        {"r":Vector3(-.42,-.57,-.1),"p":Vector3(.29,-.20,-.80),"s":.70},
-        {"r":Vector3(-.45,-.85,-.1),"p":Vector3(.30,-.20,-.80),"s":.70}
+        {"r":Vector3(-.43,-.75,-.10),"p":Vector3(.55,-.40,-.43),"s":.90},
+        {"r":Vector3(-.43,-.85,-.10),"p":Vector3(.56,-.43,-.40),"s":1.00},
+        {"r":Vector3(-.34,-.80,-.12),"p":Vector3(.60,-.49,-.39),"s":1.00},
+        {"r":Vector3(-.42,-.95,-.11),"p":Vector3(.63,-.52,-.36),"s":1.10}
     ]
     for i in range(4):
         var trial=trials[i]
