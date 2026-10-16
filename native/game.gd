@@ -77,6 +77,8 @@ var base_weapon_transform: Node3D
 var gun_orientation := 0.0
 var gun_float := 0.0
 var nav_grid: RefCounted
+var bomb: RefCounted
+var bomb_label: Label
 var bot_skill := 0.62
 var suppress_bots := false
 var total_nav_replans := 0
@@ -180,6 +182,7 @@ func _reset_scene(which: int) -> void:
         _make_player()
         for n in range(4):_make_bot(true,n)
         for n in range(5):_make_bot(false,n)
+        _init_bomb()
         return
     _box(scene_root,Vector3(0,-.5,0),Vector3(84,1,84),tex_floor)
     for z in [-41.0,41.0]:
@@ -219,6 +222,12 @@ func _reset_scene(which: int) -> void:
         _make_bot(true,n)
     for n in range(5):
         _make_bot(false,n)
+    _init_bomb()
+
+func _init_bomb() -> void:
+    bomb=load("res://bomb_mode.gd").new()
+    bomb.setup(scene_root,map_id)
+    bomb.set_carrier(bots)
 
 func _building(p: Vector3,s: Vector3) -> void:
     var collider=_box(scene_root,p+Vector3(0,s.y*.5,0),s,tex_stone)
@@ -559,6 +568,7 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.set_meta("ally",ally)
     bot.set_meta("shot",rng.randf_range(.4,1.8))
     bot.set_meta("wander",rng.randf_range(-1,1))
+    bot.set_meta("bomber",not ally and idx==0)
     bot.set_meta("last_target",Vector3.ZERO)
     bot.set_meta("next_repath",0.0)
     bot.set_meta("path",PackedVector2Array())
@@ -672,7 +682,11 @@ func _physics_process(dt: float) -> void:
                 best=dist
                 target=other
         if not is_instance_valid(target):continue
-        var delta=target.global_position-bot.global_position
+        var tactical_target=target.global_position
+        if not ally and is_instance_valid(bomb) and bomb.stage==0 and is_instance_valid(bomb.carrier) and bomb.carrier==bot:
+            tactical_target=bomb.site_a
+        var combat_distance=bot.global_position.distance_to(target.global_position)
+        var delta=tactical_target-bot.global_position
         var range_m=delta.length()
         var direct=Vector3(delta.x,0,delta.z).normalized()
         var move_dir=direct
@@ -706,13 +720,13 @@ func _physics_process(dt: float) -> void:
         bot.velocity.y-=GRAVITY*dt
         bot.move_and_slide()
         _set_bot_anim(bot,"run" if Vector2(bot.velocity.x,bot.velocity.z).length()>2.0 else "idle")
-        if range_m<28:
+        if combat_distance<28:
             bot.look_at(Vector3(target.global_position.x,bot.global_position.y,target.global_position.z),Vector3.UP)
         elif move_dir.length()>.1:
             bot.look_at(bot.global_position+move_dir,Vector3.UP)
         var cooldown=float(bot.get_meta("shot"))-dt
         var reacting=float(bot.get_meta("reaction"))-dt
-        if cooldown<=0.0 and reacting<=0 and range_m<34.0 and not suppress_bots:
+        if cooldown<=0.0 and reacting<=0 and combat_distance<34.0 and not suppress_bots:
             cooldown=rng.randf_range(.32,.8)/bot_skill
             var muzzle_origin=bot.global_position+Vector3(0,.53,0)
             var target_pos=target.global_position+Vector3(0,.48,0)
@@ -720,7 +734,7 @@ func _physics_process(dt: float) -> void:
             query.exclude=[bot.get_rid()]
             var hit=get_world_3d().direct_space_state.intersect_ray(query)
             if not hit.is_empty() and hit["collider"]==target:
-                var accuracy=clampf(bot_skill*(1.1-range_m*.012),.14,.85)
+                var accuracy=clampf(bot_skill*(1.1-combat_distance*.012),.14,.85)
                 if rng.randf()<accuracy:
                     if target==player:
                         _hurt(rng.randf_range(8,14))
@@ -733,6 +747,16 @@ func _process(dt: float) -> void:
     if not running:return
     game_time+=dt
     round_time=maxf(0,round_time-dt)
+    if is_instance_valid(bomb):
+        var result:String=bomb.tick(dt,player,bots,Input.is_physical_key_pressed(KEY_E))
+        if result=="defused":
+            score_blue+=1
+            _finish("БОМБА ОБЕЗВРЕЖЕНА · СПЕЦНАЗ ПОБЕДИЛ")
+            return
+        elif result=="detonated":
+            score_red+=1
+            _finish("ВЗРЫВ БОМБЫ · АТАКУЮЩИЕ ПОБЕДИЛИ")
+            return
     fire_delay=maxf(0,fire_delay-dt)
     grenade_time=maxf(0,grenade_time-dt)
     for n in range(projectiles.size()-1,-1,-1):
@@ -783,12 +807,21 @@ func _process(dt: float) -> void:
             remaining+=1
     var time_text="%02d:%02d" % [int(round_time)/60,int(round_time)%60]
     top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","COMPOUND"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
-    info_label.text="СИНИЕ  "+str(score_blue)+"  :  "+str(score_red)+"  КРАСНЫЕ       ПРОТИВНИКИ: "+str(remaining)
+    info_label.text="СПЕЦНАЗ  "+str(score_blue)+"  :  "+str(score_red)+"  АТАКУЮЩИЕ      ПРОТИВНИКИ: "+str(remaining)
+    if is_instance_valid(bomb_label) and is_instance_valid(bomb):
+        if bomb.stage==1:
+            bomb_label.text="БОМБА ЗАЛОЖЕНА   "+str(ceili(bomb.timer))+"с    [ E — ОБЕЗВРЕДИТЬ ]"
+            if bomb.defuse_progress>0:
+                bomb_label.text+="  "+str(int(bomb.defuse_progress*20))+"%"
+        elif bomb.plant_progress>0:
+            bomb_label.text="ПРОТИВНИК ЗАКЛАДЫВАЕТ БОМБУ!"
+        else:
+            bomb_label.text="ЗАЩИТА ОБЪЕКТОВ   A  /  B"
     hp_label.text="ЗДОРОВЬЕ "+str(int(health))+"    БРОНЯ "+str(int(armor))+"    $"+str(money)
     ammo_label.text=str(mag)+" / "+str(reserve)+"   "+String(_weapon_data()["name"])
     if is_instance_valid(grenade_label):
         grenade_label.text="G  HE  ×"+str(grenade_he)+"    H  SMOKE  ×"+str(grenade_smoke)+"     [ B — МАГАЗИН ]"
-    if remaining==0:
+    if remaining==0 and (not is_instance_valid(bomb) or bomb.stage!=1):
         score_blue+=1
         _finish("РАУНД ВЫИГРАН · ПРОТИВНИКИ УСТРАНЕНЫ")
     elif round_time<=0:
@@ -957,6 +990,9 @@ func _create_ui() -> void:
     top_label.position=Vector2(37,15)
     info_label=_make_label(hud,"5V5  •  РЕЖИМ УНИЧТОЖЕНИЯ",17,Color("f0b97e"))
     info_label.position=Vector2(39,52)
+    bomb_label=_make_label(hud,"ЗАЩИТА ОБЪЕКТОВ    A / B",18,Color("ffd0a0"))
+    bomb_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    bomb_label.position=Vector2(-510,23)
     var bottombar:=ColorRect.new()
     bottombar.color=Color(.025,.047,.064,.43)
     bottombar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -1107,7 +1143,7 @@ func _start_match(which: int) -> void:
     running=true
     cover.hide()
     hud.show()
-    hint_label.text="КОМАНДА: СИНИЕ · УСТРАНИ 5 ПРОТИВНИКОВ"
+    hint_label.text="СПЕЦНАЗ · ОСТАНОВИ ЗАКЛАДКУ БОМБЫ"
     Input.mouse_mode=Input.MOUSE_MODE_CAPTURED
 
 func _finish(message: String) -> void:
