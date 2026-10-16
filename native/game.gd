@@ -203,7 +203,7 @@ func _reset_scene(which: int) -> void:
 
 func _building(p: Vector3,s: Vector3) -> void:
     var collider=_box(scene_root,p+Vector3(0,s.y*.5,0),s,tex_stone)
-    if ResourceLoader.exists("res://assets/city/building-a.glb"):
+    if absf(p.x)>24.0 and ResourceLoader.exists("res://assets/city/building-a.glb"):
         for visual in collider.get_children():
             if visual is MeshInstance3D:visual.visible=false
         return
@@ -235,7 +235,7 @@ func _make_player() -> void:
     camera.far=150
     neck.add_child(camera)
     gun_root=Node3D.new()
-    gun_root.position=Vector3(.31,-.27,-.66)
+    gun_root.position=Vector3(.31,-.18,-.66)
     camera.add_child(gun_root)
     _make_first_person_weapon()
     muzzle=OmniLight3D.new()
@@ -295,8 +295,8 @@ func _make_first_person_weapon() -> void:
                 authored.position=-bounds.get_center()*scale_factor
                 # Use a single corrected viewmodel pivot; F6/F7 calibration remains available.
                 # No arbitrary 180° flip or per-animation rotation offsets.
-                holder.rotation=Vector3(-.31,-.57+gun_orientation,-.10)
-                holder.position=Vector3(.09,-.14,-.72)
+                holder.rotation=Vector3(-.45,-1.10+gun_orientation,-.12)
+                holder.position=Vector3(.23,0,-.92)
                 gun_mesh=holder
                 using_authored_rig=true
                 var animations=authored.find_children("*","AnimationPlayer",true,false)
@@ -702,7 +702,7 @@ func _process(dt: float) -> void:
     recoil=move_toward(recoil,0,dt*4.2)
     running_bob+=dt*(10.0 if current_speed>8.0 else 6.2 if current_speed>.5 else 1.8)
     var bob=(sin(running_bob)*.017) if current_speed>.4 else 0.0
-    gun_root.position.y=lerpf(gun_root.position.y,-.27-recoil*.12+bob,dt*16)
+    gun_root.position.y=lerpf(gun_root.position.y,-.18-recoil*.12+bob,dt*16)
     gun_root.position.z=lerpf(gun_root.position.z,-.66+cos(running_bob)*.012,dt*8)
     if is_instance_valid(muzzle):muzzle.light_energy=move_toward(muzzle.light_energy,0.0,dt*125)
     if is_instance_valid(damage_flash):
@@ -911,9 +911,9 @@ func _create_ui() -> void:
     info_label=_make_label(hud,"5V5  •  РЕЖИМ УНИЧТОЖЕНИЯ",17,Color("f0b97e"))
     info_label.position=Vector2(39,52)
     var bottombar:=ColorRect.new()
-    bottombar.color=Color(.025,.047,.064,.78)
+    bottombar.color=Color(.025,.047,.064,.43)
     bottombar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-    bottombar.offset_top=-110
+    bottombar.offset_top=-84
     bottombar.mouse_filter=Control.MOUSE_FILTER_IGNORE
     hud.add_child(bottombar)
     hp_label=_make_label(hud,"ЗДОРОВЬЕ   100",21,Color("afdfbf"))
