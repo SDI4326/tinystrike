@@ -219,8 +219,8 @@ func _make_player() -> void:
     muzzle.position=Vector3(0,0,-1.6)
     gun_root.add_child(muzzle)
     audio_gun=AudioStreamPlayer.new()
-    if ResourceLoader.exists("res://assets/sfx/gunshot.wav"):
-        audio_gun.stream=load("res://assets/sfx/gunshot.wav")
+    if ResourceLoader.exists("res://assets/sfx/gunshot.ogg"):
+        audio_gun.stream=load("res://assets/sfx/gunshot.ogg")
         audio_gun.volume_db=-5.0
     player.add_child(audio_gun)
     audio_hit=AudioStreamPlayer.new()
