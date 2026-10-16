@@ -28,6 +28,17 @@ static func place_model(world:Node3D,path:String,pos:Vector3,target:Vector3,angl
     # centre in X and Z prevents huge pivot-based offsets in the map.
     var mid=bb.get_center()*s
     instance.position=Vector3(pos.x-mid.x,pos.y-bb.position.y*s,pos.z-mid.z)
+    # Godot's ambient + authored white albedo washed out the warehouses.
+    # Tint inherited surface materials instead of hiding texture detail.
+    for mesh in instance.find_children("*","MeshInstance3D",true,false):
+        if not mesh is MeshInstance3D:continue
+        for surface in range(mesh.get_surface_override_material_count()):
+            var old_mat=mesh.get_active_material(surface)
+            if old_mat is StandardMaterial3D:
+                var m=old_mat.duplicate()
+                m.albedo_color=m.albedo_color*Color(.62,.65,.67,1.0)
+                m.roughness=maxf(m.roughness,.66)
+                mesh.set_surface_override_material(surface,m)
 
 static func apply(world:Node3D,which:int)->void:
     var kits=[
