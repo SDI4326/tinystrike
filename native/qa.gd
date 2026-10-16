@@ -104,5 +104,25 @@ func _verify() -> void:
         push_error("QA: HUD reticle or buy menu missing")
         quit(1)
         return
-    print("NATIVE_QA_SUCCESS 4 maps, 6 guns, 2 grenade types, reticle, menu, animations, shooting, reload, bots")
+    if not is_instance_valid(game.bomb) or not is_instance_valid(game.bomb.carrier):
+        push_error("QA: No enemy bomb carrier")
+        quit(1)
+        return
+    game.running=false
+    var planted_bomber=game.bomb.carrier
+    planted_bomber.global_position=game.bomb.site_a+Vector3(0,1.2,0)
+    game.bomb.tick(3.5,game.player,game.bots,false)
+    if game.bomb.stage!=1 or not game.bomb.model.visible:
+        push_error("QA: Bomb could not be planted")
+        quit(1)
+        return
+    game.player.global_position=game.bomb.site_a+Vector3(0,1.2,0)
+    var defused=game.bomb.tick(5.05,game.player,game.bots,true)
+    if defused!="defused" or game.bomb.stage!=2:
+        push_error("QA: Hold E defusal failed")
+        quit(1)
+        return
+    print("QA_BOMB_OK plant=3.2s defuse=5.0s fuse=40s")
+    print("NATIVE_QA_SUCCESS 4 maps, 6 guns, grenades, bomb plant/defuse, reticle, menu, animations, shooting, reload, bots, A*")
+
     quit(0)
