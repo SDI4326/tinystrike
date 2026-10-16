@@ -194,6 +194,7 @@ func _reset_scene(which: int) -> void:
         for i in range(7):
             _box(scene_root,Vector3(-30+i*9,.55,6+i%3*4),Vector3(4,1.1,2),tex_floor)
     load("res://remaster.gd").apply(scene_root,which)
+    load("res://maps_v3.gd").apply(scene_root,which)
     _make_player()
     for n in range(4):
         _make_bot(true,n)
@@ -201,7 +202,11 @@ func _reset_scene(which: int) -> void:
         _make_bot(false,n)
 
 func _building(p: Vector3,s: Vector3) -> void:
-    _box(scene_root,p+Vector3(0,s.y*.5,0),s,tex_stone)
+    var collider=_box(scene_root,p+Vector3(0,s.y*.5,0),s,tex_stone)
+    if ResourceLoader.exists("res://assets/city/building-a.glb"):
+        for visual in collider.get_children():
+            if visual is MeshInstance3D:visual.visible=false
+        return
     _box(scene_root,p+Vector3(0,s.y+.2,0),Vector3(s.x+.3,.35,s.z+.3),tex_metal,false)
     for z in [-3.4,0.0,3.4]:
         var face := -1.0 if p.x>0 else 1.0
@@ -458,7 +463,7 @@ func _explode_grenade(data:Dictionary) -> void:
             p.position=Vector3(rng.randf_range(-2.3,2.3),rng.randf_range(0,2.3),rng.randf_range(-2.3,2.3))
             burst.add_child(p)
         var timer=get_tree().create_timer(7.0)
-        timer.timeout.connect(func():if is_instance_valid(burst):burst.queue_free())
+        get_tree().create_tween().tween_interval(7.0).finished.connect(burst.queue_free)
     else:
         for b in bots:
             if is_instance_valid(b) and not b.get_meta("ally"):
@@ -484,8 +489,8 @@ func _explode_grenade(data:Dictionary) -> void:
         particles.draw_pass_1=qm
         burst.add_child(particles)
         particles.emitting=true
-        get_tree().create_timer(1.7).timeout.connect(func():if is_instance_valid(burst):burst.queue_free())
-    get_tree().create_timer(.3).timeout.connect(func():if is_instance_valid(glow):glow.queue_free())
+        get_tree().create_tween().tween_interval(1.7).finished.connect(burst.queue_free)
+    get_tree().create_tween().tween_interval(.3).finished.connect(glow.queue_free)
     body.queue_free()
 
 func _play_rig_anim(wanted:String) -> void:
@@ -618,8 +623,8 @@ func _process(dt: float) -> void:
         else:
             projectiles[n]=g
     if is_instance_valid(crosshair_ui):
-        crosshair_ui.spread=lerpf(crosshair_ui.spread,0.0 if weapon_aim else clampf(current_speed*.6+recoil*9.0,0.0,20.0),dt*14)
-        crosshair_ui.scope=weapon_aim and weapon_idx==2
+        crosshair_ui.set("spread",lerpf(float(crosshair_ui.get("spread")),0.0 if weapon_aim else clampf(current_speed*.6+recoil*9.0,0.0,20.0),dt*14))
+        crosshair_ui.set("scope",weapon_aim and weapon_idx==2)
     recoil=move_toward(recoil,0,dt*4.2)
     running_bob+=dt*(10.0 if current_speed>8.0 else 6.2 if current_speed>.5 else 1.8)
     var bob=(sin(running_bob)*.017) if current_speed>.4 else 0.0
@@ -696,7 +701,7 @@ func _shoot() -> void:
         if target is CharacterBody3D and target.has_meta("hp") and not target.get_meta("ally"):
             _hurt_bot(target,float(_weapon_data()["damage"]),player)
             hint_label.text="ПОПАДАНИЕ"
-            if is_instance_valid(crosshair_ui):crosshair_ui.hit_flash=.13
+            if is_instance_valid(crosshair_ui):crosshair_ui.set("hit_flash",.13)
             if is_instance_valid(audio_hit) and audio_hit.stream!=null:audio_hit.play()
             cross.modulate=Color("f3b7a0")
     if mag==0:hint_label.text="МАГАЗИН ПУСТ — R"
@@ -738,6 +743,14 @@ func _unhandled_input(event: InputEvent) -> void:
         neck.rotate_x(-event.relative.y*MOUSE_SENS)
         neck.rotation.x=clampf(neck.rotation.x,-1.4,1.4)
     if event is InputEventKey and event.pressed and not event.echo:
+        if is_instance_valid(buy_overlay) and buy_overlay.visible:
+            if event.physical_keycode==KEY_ESCAPE or event.physical_keycode==KEY_B:
+                _resume_from_buy()
+                return
+            var code=event.physical_keycode
+            if code>=KEY_1 and code<=KEY_6:
+                _buy_gun(code-KEY_1)
+                return
         if event.physical_keycode==KEY_ESCAPE:
             if running:
                 Input.mouse_mode=Input.MOUSE_MODE_VISIBLE
