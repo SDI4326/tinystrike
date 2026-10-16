@@ -142,7 +142,8 @@ func _reset_scene(which: int) -> void:
     var colors = [
         [Color("a9a08c"),Color("8d8070"),Color("b3a288")],
         [Color("435460"),Color("435864"),Color("536673")],
-        [Color("b5c3cd"),Color("8394a2"),Color("9caebc")]
+        [Color("b5c3cd"),Color("8394a2"),Color("9caebc")],
+        [Color("978d7e"),Color("a5977f"),Color("aebbc5")]
     ][which]
     sky_tint = colors[2]
     tex_floor = load("res://remaster.gd").textured("asphalt",colors[0],.16)
@@ -169,6 +170,17 @@ func _reset_scene(which: int) -> void:
     sun.light_energy = .48 if which == 1 else .88
     sun.shadow_enabled = true
     scene_root.add_child(sun)
+    if which==3:
+        var result=load("res://hilltown.gd").build(scene_root)
+        if not result["loaded"]:
+            push_error("Author-designed HILLTOWN map asset missing")
+        nav_grid=load("res://bot_nav.gd").new()
+        nav_grid.build(scene_root)
+        total_nav_replans=0
+        _make_player()
+        for n in range(4):_make_bot(true,n)
+        for n in range(5):_make_bot(false,n)
+        return
     _box(scene_root,Vector3(0,-.5,0),Vector3(84,1,84),tex_floor)
     for z in [-41.0,41.0]:
         _box(scene_root,Vector3(0,4,z),Vector3(84,8,1.8),tex_stone)
@@ -230,7 +242,7 @@ func _make_player() -> void:
     sh.radius=.35
     col.shape=sh
     player.add_child(col)
-    player.position=Vector3(0,1.2,28)
+    player.position=Vector3(0,1.2,9) if map_id==3 else Vector3(0,1.2,28)
     scene_root.add_child(player)
     neck=Node3D.new()
     neck.position.y=.63
@@ -536,7 +548,7 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.name=("ALLY_" if ally else "ENEMY_")+str(idx+1)
     bot.collision_layer=2
     bot.collision_mask=1|2|4
-    bot.position=Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
+    bot.position=Vector3((idx-2)*2.1,1.2,(-9.0 if not ally else 8.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
     var col:=CollisionShape3D.new()
     var shp:=CapsuleShape3D.new()
     shp.height=1.85
@@ -770,7 +782,7 @@ func _process(dt: float) -> void:
         if is_instance_valid(bot) and not bot.get_meta("ally"):
             remaining+=1
     var time_text="%02d:%02d" % [int(round_time)/60,int(round_time)%60]
-    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
+    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","HILLTOWN"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
     info_label.text="СИНИЕ  "+str(score_blue)+"  :  "+str(score_red)+"  КРАСНЫЕ       ПРОТИВНИКИ: "+str(remaining)
     hp_label.text="ЗДОРОВЬЕ "+str(int(health))+"    БРОНЯ "+str(int(armor))+"    $"+str(money)
     ammo_label.text=str(mag)+" / "+str(reserve)+"   "+String(_weapon_data()["name"])
@@ -991,22 +1003,23 @@ func _create_ui() -> void:
     superhead.add_theme_color_override("font_color",Color("b9a993"))
     cover.add_child(superhead)
     panel=VBoxContainer.new()
-    panel.position=Vector2(67,104)
+    panel.position=Vector2(67,66)
     panel.custom_minimum_size=Vector2(700,545)
-    panel.add_theme_constant_override("separation",13)
+    panel.add_theme_constant_override("separation",8)
     cover.add_child(panel)
-    title_label=_make_label(panel,"CONTACT   ZERO",64,Color("f0f6fa"))
+    title_label=_make_label(panel,"CONTACT   ZERO",55,Color("f0f6fa"))
     subtitle_label=_make_label(panel,"TACTICAL FPS  /  WINDOWS  /  VERSION 3",22,Color("ed9e72"))
     var divider=HSeparator.new()
     panel.add_child(divider)
     _make_label(panel,"ВЫБЕРИ ЛОКАЦИЮ",19,Color("b8c9d1"))
-    for i in range(3):
+    for i in range(4):
         var b:=Button.new()
         b.text=["01     BASTION            ГОРОДСКИЕ КВАРТАЛЫ  /  ДЕНЬ",
                 "02     NIGHTSHIFT         ПРОМЫШЛЕННЫЙ ПОРТ  /  НОЧЬ",
-                "03     RIDGE                 ВОЕННАЯ БАЗА  /  СНЕГ"][i]
+                "03     RIDGE                 ВОЕННАЯ БАЗА  /  СНЕГ",
+                "04     HILLTOWN          ГОТОВЫЙ ТАКТИЧЕСКИЙ УЧАСТОК  /  ДЕНЬ"][i]
         b.alignment=HORIZONTAL_ALIGNMENT_LEFT
-        b.custom_minimum_size=Vector2(690,69)
+        b.custom_minimum_size=Vector2(690,56)
         _style_button(b,Color("152430"),Color("405d70"))
         b.pressed.connect(_start_match.bind(i))
         panel.add_child(b)
