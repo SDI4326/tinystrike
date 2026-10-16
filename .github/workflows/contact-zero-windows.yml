@@ -59,7 +59,7 @@ jobs:
           curl -fL --retry 4 "${KEN}/prototype-kit/crate.glb" -o native/assets/kenney/crate.glb
           curl -fL --retry 4 "${KEN}/space-kit/pipe-straight.glb" -o native/assets/kenney/pipe-straight.glb
           SFX="https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/gunshots"
-          curl -fL --retry 4 "${SFX}/game_gunshot.wav" -o native/assets/sfx/gunshot.wav
+          curl -fL --retry 4 "https://raw.githubusercontent.com/GeorgeQLe/assets-sfx-combat/main/assets/kenney/sci-fi-sounds/Audio/explosionCrunch_000.ogg" -o native/assets/sfx/gunshot.ogg
           curl -fL --retry 4 "https://raw.githubusercontent.com/GeorgeQLe/assets-sfx-combat/main/assets/kenney/impact-sounds/Audio/impactGeneric_light_000.ogg" -o native/assets/sfx/hit.ogg
           RIG="https://raw.githubusercontent.com/Ayush-Mohanty/FPS-Arms-3D/main/Models/fps_ak-74m_animations"
           curl -fL --retry 4 "${RIG}/scene.gltf" -o native/assets/rig/scene.gltf
