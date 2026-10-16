@@ -463,7 +463,9 @@ func _explode_grenade(data:Dictionary) -> void:
             p.position=Vector3(rng.randf_range(-2.3,2.3),rng.randf_range(0,2.3),rng.randf_range(-2.3,2.3))
             burst.add_child(p)
         var timer=get_tree().create_timer(7.0)
-        get_tree().create_tween().tween_interval(7.0).finished.connect(burst.queue_free)
+        var smoke_tween=get_tree().create_tween()
+        smoke_tween.tween_interval(7.0)
+        smoke_tween.finished.connect(burst.queue_free)
     else:
         for b in bots:
             if is_instance_valid(b) and not b.get_meta("ally"):
@@ -489,8 +491,12 @@ func _explode_grenade(data:Dictionary) -> void:
         particles.draw_pass_1=qm
         burst.add_child(particles)
         particles.emitting=true
-        get_tree().create_tween().tween_interval(1.7).finished.connect(burst.queue_free)
-    get_tree().create_tween().tween_interval(.3).finished.connect(glow.queue_free)
+        var burst_tween=get_tree().create_tween()
+        burst_tween.tween_interval(1.7)
+        burst_tween.finished.connect(burst.queue_free)
+    var flash_tween=get_tree().create_tween()
+    flash_tween.tween_interval(.3)
+    flash_tween.finished.connect(glow.queue_free)
     body.queue_free()
 
 func _play_rig_anim(wanted:String) -> void:
