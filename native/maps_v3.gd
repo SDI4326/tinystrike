@@ -56,10 +56,8 @@ static func apply(world:Node3D,which:int)->void:
             var zz=[-27.0,-7.0,14.0,31.0][n]
             var path="res://assets/city/"+String(kit[idx%kit.size()])+".glb"
             place_model(world,path,Vector3(xx,0,zz),Vector3(15.0,13.0,14.2),PI*.5 if side>0 else -PI*.5)
-    for n in range(4):
-        var p=[Vector3(-8,0,-15),Vector3(11,0,12),Vector3(-12,0,14),Vector3(12,0,-20)][n]
-        var nm=String(kit[(n+3)%kit.size()])
-        place_model(world,"res://assets/city/"+nm+".glb",p,Vector3(10.8,8.0,8.4),PI*.5*float(n%4))
+    # Center lanes keep textured structural buildings and predictable cover.
+    # Giant industrial prefabs formerly extended across the road and into view.
     # One consistent, recognizable orientation landmark per map.
     if which==0:
         for i in range(8):
