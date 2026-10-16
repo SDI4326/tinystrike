@@ -38,6 +38,7 @@ jobs:
           ORIGIN="https://raw.githubusercontent.com/SDI4326/tinystrike/main/assets/models"
           curl -fL --retry 4 "${ORIGIN}/soldier_ct.glb" -o native/assets/soldier_ct.glb
           curl -fL --retry 4 "${ORIGIN}/soldier_t.glb" -o native/assets/soldier_t.glb
+          curl -fL --retry 4 "https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/bamen_military_soldier/bamen_military_soldier_animated.glb" -o native/assets/military_soldier.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/ak47.glb" -o native/assets/ak47.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/npc-arms-ct.glb" -o native/assets/npc-arms-ct.glb
           for GUN in m4a1 awp deagle mp5 usp; do
@@ -47,7 +48,7 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p native/assets/tex native/assets/kenney native/assets/rig native/assets/sfx native/assets/city
-          CITY="https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs/city-kit-commercial"
+          CITY="https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/kenney_city_kit_industrial"
           for NAME in a b c d e f g h i j k l m n; do
             curl -fL --retry 4 "${CITY}/building-${NAME}.glb" -o "native/assets/city/building-${NAME}.glb"
           done
