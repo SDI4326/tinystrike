@@ -52,6 +52,17 @@ var tex_trim: Material
 var sky_tint: Color = Color("b4a48c")
 var rng := RandomNumberGenerator.new()
 var bot_update := 0.0
+var fps_anim: AnimationPlayer
+var fps_anim_name := ""
+var using_authored_rig := false
+var muzzle: OmniLight3D
+var audio_gun: AudioStreamPlayer
+var audio_hit: AudioStreamPlayer
+var shot_anim_ends := 0.0
+var damage_flash: ColorRect
+var damage_flash_time := 0.0
+var running_bob := 0.0
+var current_speed := 0.0
 
 func _ready() -> void:
     rng.randomize()
@@ -109,9 +120,9 @@ func _reset_scene(which: int) -> void:
         [Color("b5c3cd"),Color("8394a2"),Color("9caebc")]
     ][which]
     sky_tint = colors[2]
-    tex_floor = _mat(colors[0], .92)
-    tex_stone = _mat(colors[1], .82)
-    tex_metal = _mat(Color("404e59"), .36, .52)
+    tex_floor = load("res://remaster.gd").textured("asphalt",colors[0],.16)
+    tex_stone = load("res://remaster.gd").textured("concrete",colors[1],.18)
+    tex_metal = load("res://remaster.gd").textured("metal",Color("404e59"),.3)
     tex_trim = _mat(Color("a6abb0"), .49, .23)
     tex_glass = _mat(Color("304451"), .20, .75)
     var env := WorldEnvironment.new()
@@ -161,6 +172,7 @@ func _reset_scene(which: int) -> void:
     elif which == 2:
         for i in range(7):
             _box(scene_root,Vector3(-30+i*9,.55,6+i%3*4),Vector3(4,1.1,2),tex_floor)
+    load("res://remaster.gd").apply(scene_root,which)
     _make_player()
     for n in range(4):
         _make_bot(true,n)
@@ -275,6 +287,7 @@ func _physics_process(dt: float) -> void:
     player.velocity.x=move_toward(player.velocity.x,wish.x*target_speed,35*dt)
     player.velocity.z=move_toward(player.velocity.z,wish.z*target_speed,35*dt)
     player.velocity.y-=GRAVITY*dt
+    current_speed=Vector2(player.velocity.x,player.velocity.z).length()
     if player.is_on_floor() and Input.is_physical_key_pressed(KEY_SPACE):player.velocity.y=7.0
     player.move_and_slide()
     neck.position.y=lerpf(neck.position.y,.35 if crouch else .63,dt*11)
@@ -295,7 +308,19 @@ func _physics_process(dt: float) -> void:
         var d=vec.length()
         var dir=Vector3(vec.x,0,vec.z).normalized()
         var sidestep=Vector3(-dir.z,0,dir.x)*sin(game_time*.9+float(bot.get_instance_id()%11))
-        var vel=(dir*.9+sidestep*.42).normalized()*(3.2 if d>14 else 1.3 if d>6 else -1.4)
+        var approach=dir*.9+sidestep*.42
+        var origin=bot.global_position+Vector3(0,.30,0)
+        var q_obstacle=PhysicsRayQueryParameters3D.create(origin,origin+dir*2.6)
+        q_obstacle.exclude=[bot.get_rid(),player.get_rid()]
+        var obstacle=get_world_3d().direct_space_state.intersect_ray(q_obstacle)
+        if not obstacle.is_empty():
+            var surface=obstacle["normal"]
+            var tangent=Vector3(-dir.z,0,dir.x)
+            var side=signf(surface.dot(tangent))
+            approach=tangent*side*.8+dir*.25
+            if absf(side)<.2:
+                approach=tangent if bot.get_instance_id()%2==0 else -tangent
+        var vel=approach.normalized()*(3.6 if d>14 else 2.2 if d>6 else -1.3)
         bot.velocity.x=move_toward(bot.velocity.x,vel.x,dt*8)
         bot.velocity.z=move_toward(bot.velocity.z,vel.z,dt*8)
         bot.velocity.y-=GRAVITY*dt
@@ -322,7 +347,19 @@ func _process(dt: float) -> void:
     round_time=maxf(0,round_time-dt)
     fire_delay=maxf(0,fire_delay-dt)
     recoil=move_toward(recoil,0,dt*4.2)
-    gun_root.position.y=lerpf(gun_root.position.y,-.27-recoil*.12,dt*16)
+    running_bob+=dt*(10.0 if current_speed>8.0 else 6.2 if current_speed>.5 else 1.8)
+    var bob=(sin(running_bob)*.017) if current_speed>.4 else 0.0
+    gun_root.position.y=lerpf(gun_root.position.y,-.27-recoil*.12+bob,dt*16)
+    gun_root.position.z=lerpf(gun_root.position.z,-.66+cos(running_bob)*.012,dt*8)
+    if is_instance_valid(muzzle):muzzle.light_energy=move_toward(muzzle.light_energy,0.0,dt*125)
+    if is_instance_valid(damage_flash):
+        damage_flash_time=maxf(damage_flash_time-dt,0)
+        damage_flash.color.a=.29*damage_flash_time
+    if reload_time>0:_play_rig_anim("reload")
+    elif game_time<shot_anim_ends:_play_rig_anim("shot")
+    elif current_speed>8.0:_play_rig_anim("run")
+    elif current_speed>.5:_play_rig_anim("walk")
+    else:_play_rig_anim("idle")
     gun_root.rotation.x=lerpf(gun_root.rotation.x,recoil*.12,dt*13)
     if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
         camera.fov=lerpf(camera.fov,57,dt*14)
@@ -347,7 +384,7 @@ func _process(dt: float) -> void:
     top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
     info_label.text="СИНИЕ  "+str(score_blue)+"  :  "+str(score_red)+"  КРАСНЫЕ       ПРОТИВНИКИ: "+str(remaining)
     hp_label.text="ЗДОРОВЬЕ "+str(int(health))+"    БРОНЯ "+str(int(armor))+"    $"+str(money)
-    ammo_label.text=str(mag)+" / "+str(reserve)+"     AK-47"
+    ammo_label.text=str(mag)+" / "+str(reserve)+"     AK-74M"
     if remaining==0:
         score_blue+=1
         _finish("РАУНД ВЫИГРАН · ПРОТИВНИКИ УСТРАНЕНЫ")
@@ -364,6 +401,12 @@ func _shoot() -> void:
     fire_delay=.115
     last_shot=game_time
     recoil=1.0
+    shot_anim_ends=game_time+.16
+    _play_rig_anim("shot")
+    if is_instance_valid(muzzle):muzzle.light_energy=5.4
+    if is_instance_valid(audio_gun) and audio_gun.stream!=null:
+        audio_gun.pitch_scale=rng.randf_range(.94,1.06)
+        audio_gun.play()
     neck.rotation.x=clampf(neck.rotation.x+.013,-1.40,1.4)
     var start=camera.global_position
     var end=start-camera.global_transform.basis.z*120
@@ -375,6 +418,8 @@ func _shoot() -> void:
         if target is CharacterBody3D and target.has_meta("hp") and not target.get_meta("ally"):
             _hurt_bot(target,32.0,player)
             hint_label.text="ПОПАДАНИЕ +32"
+            if is_instance_valid(audio_hit) and audio_hit.stream!=null:audio_hit.play()
+            cross.modulate=Color("f3b7a0")
     if mag==0:hint_label.text="МАГАЗИН ПУСТ — R"
 
 func _hurt_bot(bot: CharacterBody3D,dmg: float,killer: Node3D) -> void:
@@ -393,6 +438,9 @@ func _hurt(amount: float) -> void:
     var absorbed=minf(armor,amount*.5)
     armor-=absorbed
     health-=amount-absorbed
+    if is_instance_valid(damage_flash):
+        damage_flash_time=.95
+        damage_flash.color.a=.25
     if health<=0:
         health=0
         deaths+=1
@@ -402,6 +450,7 @@ func _hurt(amount: float) -> void:
 func _reload() -> void:
     if reload_time<=0 and mag<30 and reserve>0:
         reload_time=2.3
+        _play_rig_anim("reload")
         hint_label.text="ПЕРЕЗАРЯДКА..."
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -456,6 +505,11 @@ func _create_ui() -> void:
     cross=_make_label(hud,"+",30,Color("e5f8f7"))
     cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
     cross.position=Vector2(-9,-24)
+    damage_flash=ColorRect.new()
+    damage_flash.color=Color(1,.12,.1,0)
+    damage_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    damage_flash.mouse_filter=Control.MOUSE_FILTER_IGNORE
+    hud.add_child(damage_flash)
     cover=ColorRect.new()
     cover.color=Color(0.035,0.062,0.09,.98)
     cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -465,7 +519,7 @@ func _create_ui() -> void:
     panel.position=Vector2(70,115)
     cover.add_child(panel)
     title_label=_make_label(panel,"CONTACT ZERO",72,Color("f0f6fa"))
-    subtitle_label=_make_label(panel,"NATIVE WINDOWS FPS   ·   GODOT 4",22,Color("ed9e72"))
+    subtitle_label=_make_label(panel,"REMASTERED   /   NATIVE WINDOWS BUILD",22,Color("ed9e72"))
     _make_label(panel,"",18,Color.WHITE)
     _make_label(panel,"ВЫБЕРИ КАРТУ И НАЧНИ МАТЧ 5 НА 5",24,Color("bed0dd"))
     for i in range(3):
@@ -491,6 +545,9 @@ func _start_match(which: int) -> void:
     await get_tree().process_frame
     health=100
     armor=50
+    fps_anim_name=""
+    shot_anim_ends=0.0
+    damage_flash_time=0.0
     mag=30
     reserve=150
     reload_time=0
