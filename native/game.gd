@@ -549,10 +549,11 @@ func _make_bot(ally: bool,idx: int) -> void:
             var model=pack.instantiate()
             bot.add_child(model)
             if pack_path.ends_with("military_soldier.glb"):
-                var bounds=_scene_mesh_bounds(model)
-                var unit=1.78/maxf(.01,bounds.size.y)
-                model.scale=Vector3.ONE*unit
-                model.position=Vector3(-bounds.get_center().x*unit,-.9-bounds.position.y*unit,-bounds.get_center().z*unit)
+                # BAMEN's rig is already authored at human scale.
+                # Skinned AABBs can be tiny/incorrect until animation updates;
+                # auto-normalizing them caused gigantic soldiers above the map.
+                model.scale=Vector3.ONE*.95
+                model.position=Vector3(0,-.92,0)
                 model.rotation.y=PI
                 var clips=model.find_children("*","AnimationPlayer",true,false)
                 if clips.size()>0:
