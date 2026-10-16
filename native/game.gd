@@ -211,31 +211,104 @@ func _make_player() -> void:
     gun_root=Node3D.new()
     gun_root.position=Vector3(.31,-.27,-.66)
     camera.add_child(gun_root)
-    var weapon_scene="res://assets/ak47.glb"
-    if ResourceLoader.exists(weapon_scene):
-        var ps=load(weapon_scene)
-        if ps is PackedScene:
-            gun_mesh=ps.instantiate()
+    _make_first_person_weapon()
+    muzzle=OmniLight3D.new()
+    muzzle.light_color=Color("ffc88c")
+    muzzle.light_energy=0.0
+    muzzle.omni_range=5.0
+    muzzle.position=Vector3(0,0,-1.6)
+    gun_root.add_child(muzzle)
+    audio_gun=AudioStreamPlayer.new()
+    if ResourceLoader.exists("res://assets/sfx/gunshot.wav"):
+        audio_gun.stream=load("res://assets/sfx/gunshot.wav")
+        audio_gun.volume_db=-5.0
+    player.add_child(audio_gun)
+    audio_hit=AudioStreamPlayer.new()
+    if ResourceLoader.exists("res://assets/sfx/hit.ogg"):
+        audio_hit.stream=load("res://assets/sfx/hit.ogg")
+        audio_hit.volume_db=-9.0
+    player.add_child(audio_hit)
+
+func _scene_mesh_bounds(root:Node3D)->AABB:
+    var collected=AABB()
+    var has=false
+    for node in root.find_children("*","MeshInstance3D",true,false):
+        if not node is MeshInstance3D or node.mesh==null:continue
+        var tr=Transform3D.IDENTITY
+        var obj=node
+        while obj!=root and obj!=null:
+            tr=obj.transform*tr
+            obj=obj.get_parent()
+        var bound=tr*node.mesh.get_aabb()
+        if not has:
+            collected=bound
+            has=true
+        else:
+            collected=collected.merge(bound)
+    if not has:
+        collected=AABB(Vector3(-1,-1,-1),Vector3(2,2,2))
+    return collected
+
+func _make_first_person_weapon() -> void:
+    using_authored_rig=false
+    fps_anim=null
+    gun_mesh=null
+    var rig_path="res://assets/rig/scene.gltf"
+    if ResourceLoader.exists(rig_path):
+        var res=load(rig_path)
+        if res is PackedScene:
+            var authored=res.instantiate()
+            if authored is Node3D:
+                var holder:=Node3D.new()
+                gun_root.add_child(holder)
+                holder.add_child(authored)
+                var bounds=_scene_mesh_bounds(authored)
+                var big=maxf(bounds.size.x,maxf(bounds.size.y,bounds.size.z))
+                var scale_factor=1.6/maxf(.01,big)
+                authored.scale=Vector3.ONE*scale_factor
+                authored.position=-bounds.get_center()*scale_factor
+                holder.rotation=Vector3(-.27,-.54,-.10)
+                holder.position=Vector3(.09,-.14,-.72)
+                gun_mesh=holder
+                using_authored_rig=true
+                var animations=authored.find_children("*","AnimationPlayer",true,false)
+                if animations.size()>0:
+                    fps_anim=animations[0]
+                _play_rig_anim("idle")
+    if not using_authored_rig:
+        var old="res://assets/ak47.glb"
+        if ResourceLoader.exists(old):
+            var oldres=load(old)
+            if oldres is PackedScene:
+                gun_mesh=oldres.instantiate()
+                gun_root.add_child(gun_mesh)
+                gun_mesh.rotation.y=PI
+                gun_mesh.scale=Vector3.ONE*.7
+                gun_mesh.position=Vector3(0,-.08,-.25)
+        if not is_instance_valid(gun_mesh):
+            gun_mesh=Node3D.new()
             gun_root.add_child(gun_mesh)
-            gun_mesh.rotation.y=PI
-            gun_mesh.scale=Vector3.ONE*.7
-            gun_mesh.position=Vector3(0,-.08,-.25)
-    if not is_instance_valid(gun_mesh):
-        gun_mesh=Node3D.new()
-        gun_root.add_child(gun_mesh)
-        _box(gun_mesh,Vector3(0,-.1,-.42),Vector3(.15,.19,.95),tex_metal,false)
-        _box(gun_mesh,Vector3(0,-.27,-.10),Vector3(.14,.33,.20),tex_stone,false)
-        _box(gun_mesh,Vector3(0,.02,-.18),Vector3(.06,.10,.18),tex_trim,false)
-    # World meshes are separate; hands and gun belong to one camera/viewmodel transform.
-    var arm_scene="res://assets/npc-arms-ct.glb"
-    if ResourceLoader.exists(arm_scene):
-        var ar=load(arm_scene)
-        if ar is PackedScene:
-            var hands=ar.instantiate()
-            gun_root.add_child(hands)
-            hands.position=Vector3(-.22,-.18,.04)
-            hands.scale=Vector3.ONE*.65
-            hands.rotation_degrees=Vector3(-8,180,0)
+            _box(gun_mesh,Vector3(0,-.1,-.42),Vector3(.15,.19,.95),tex_metal,false)
+        var arm_scene="res://assets/npc-arms-ct.glb"
+        if ResourceLoader.exists(arm_scene):
+            var arms=load(arm_scene)
+            if arms is PackedScene:
+                var hands=arms.instantiate()
+                gun_root.add_child(hands)
+                hands.position=Vector3(-.22,-.18,.04)
+                hands.scale=Vector3.ONE*.65
+                hands.rotation_degrees=Vector3(-8,180,0)
+
+func _play_rig_anim(wanted:String) -> void:
+    if not is_instance_valid(fps_anim):return
+    if fps_anim_name==wanted:return
+    for name in fps_anim.get_animation_list():
+        var low=String(name).to_lower()
+        if low.contains(wanted):
+            fps_anim.play(String(name),.12)
+            fps_anim_name=wanted
+            return
+
 
 func _make_bot(ally: bool,idx: int) -> void:
     var bot:=CharacterBody3D.new()
