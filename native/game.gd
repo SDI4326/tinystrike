@@ -173,7 +173,7 @@ func _reset_scene(which: int) -> void:
     if which==3:
         var result=load("res://hilltown.gd").build(scene_root)
         if not result["loaded"]:
-            push_error("Author-designed HILLTOWN map asset missing")
+            push_error("COMPOUND map did not load")
         nav_grid=load("res://bot_nav.gd").new()
         nav_grid.build(scene_root)
         total_nav_replans=0
@@ -782,7 +782,7 @@ func _process(dt: float) -> void:
         if is_instance_valid(bot) and not bot.get_meta("ally"):
             remaining+=1
     var time_text="%02d:%02d" % [int(round_time)/60,int(round_time)%60]
-    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","HILLTOWN"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
+    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","COMPOUND"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
     info_label.text="СИНИЕ  "+str(score_blue)+"  :  "+str(score_red)+"  КРАСНЫЕ       ПРОТИВНИКИ: "+str(remaining)
     hp_label.text="ЗДОРОВЬЕ "+str(int(health))+"    БРОНЯ "+str(int(armor))+"    $"+str(money)
     ammo_label.text=str(mag)+" / "+str(reserve)+"   "+String(_weapon_data()["name"])
@@ -1017,7 +1017,7 @@ func _create_ui() -> void:
         b.text=["01     BASTION            ГОРОДСКИЕ КВАРТАЛЫ  /  ДЕНЬ",
                 "02     NIGHTSHIFT         ПРОМЫШЛЕННЫЙ ПОРТ  /  НОЧЬ",
                 "03     RIDGE                 ВОЕННАЯ БАЗА  /  СНЕГ",
-                "04     HILLTOWN          ГОТОВЫЙ ТАКТИЧЕСКИЙ УЧАСТОК  /  ДЕНЬ"][i]
+                "04     COMPOUND          ПРОМЫШЛЕННЫЙ КОМПЛЕКС  /  ДЕНЬ"][i]
         b.alignment=HORIZONTAL_ALIGNMENT_LEFT
         b.custom_minimum_size=Vector2(690,56)
         _style_button(b,Color("152430"),Color("405d70"))
