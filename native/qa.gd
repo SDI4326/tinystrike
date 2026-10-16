@@ -13,7 +13,7 @@ func _verify() -> void:
     root.add_child(game)
     await process_frame
     await process_frame
-    for mode in range(3):
+    for mode in range(4):
         game._start_match(mode)
         await process_frame
         await process_frame
@@ -34,13 +34,17 @@ func _verify() -> void:
             push_error("QA: Player/camera/world missing")
             quit(1)
             return
-        if not is_instance_valid(game.nav_grid) or game.nav_grid.counted_colliders<10:
+        if not is_instance_valid(game.nav_grid) or (game.nav_grid.counted_colliders<10 and mode!=3):
             push_error("QA: Navigation grid missing colliders on map "+str(mode))
             quit(1)
             return
-        var route=game.nav_grid.route(Vector3(0,1.2,27),Vector3(0,1.2,-27))
+        var route=game.nav_grid.route(Vector3(0,1.2,9),Vector3(0,1.2,-9)) if mode==3 else game.nav_grid.route(Vector3(0,1.2,27),Vector3(0,1.2,-27))
         if route.size()<5:
             push_error("QA: No A* walking route through map "+str(mode))
+            quit(1)
+            return
+        if mode==3 and game.scene_root.find_child("HILLTOWN_SITE_A",true,false)==null:
+            push_error("QA: Missing Hilltown authored map")
             quit(1)
             return
         print("QA_NAV_OK map=",mode," waypoints=",route.size()," obstacles=",game.nav_grid.counted_colliders)
@@ -100,5 +104,5 @@ func _verify() -> void:
         push_error("QA: HUD reticle or buy menu missing")
         quit(1)
         return
-    print("NATIVE_QA_SUCCESS 3 maps, 6 guns, 2 grenade types, reticle, menu, animations, shooting, reload, bots")
+    print("NATIVE_QA_SUCCESS 4 maps, 6 guns, 2 grenade types, reticle, menu, animations, shooting, reload, bots")
     quit(0)
