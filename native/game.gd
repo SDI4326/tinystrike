@@ -526,14 +526,37 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.set_meta("ally",ally)
     bot.set_meta("shot",rng.randf_range(.4,1.8))
     bot.set_meta("wander",rng.randf_range(-1,1))
-    var pack_path="res://assets/soldier_ct.glb" if ally else "res://assets/soldier_t.glb"
+    var pack_path="res://assets/military_soldier.glb"
+    if not ResourceLoader.exists(pack_path):
+        pack_path="res://assets/soldier_ct.glb" if ally else "res://assets/soldier_t.glb"
     if ResourceLoader.exists(pack_path):
         var pack=load(pack_path)
         if pack is PackedScene:
             var model=pack.instantiate()
             bot.add_child(model)
-            model.position.y=-.92
-            model.scale=Vector3.ONE*.8
+            if pack_path.ends_with("military_soldier.glb"):
+                var bounds=_scene_mesh_bounds(model)
+                var unit=1.78/maxf(.01,bounds.size.y)
+                model.scale=Vector3.ONE*unit
+                model.position=Vector3(-bounds.get_center().x*unit,-.9-bounds.position.y*unit,-bounds.get_center().z*unit)
+                model.rotation.y=PI
+                var clips=model.find_children("*","AnimationPlayer",true,false)
+                if clips.size()>0:
+                    var ap:AnimationPlayer=clips[0]
+                    bot.set_meta("animation_player",ap)
+                    bot.set_meta("animation_state","")
+                    _set_bot_anim(bot,"idle")
+            else:
+                model.position.y=-.92
+                model.scale=Vector3.ONE*.8
+            # Clear friend/foe identification, without repainting realistic textures.
+            var emblem:=MeshInstance3D.new()
+            var emblem_mesh:=BoxMesh.new()
+            emblem_mesh.size=Vector3(.10,.22,.05)
+            emblem.mesh=emblem_mesh
+            emblem.material_override=_mat(Color("4dd7d2") if ally else Color("f39070"),.52,.06)
+            emblem.position=Vector3(.34,.44,.11)
+            bot.add_child(emblem)
     else:
         var shell:=MeshInstance3D.new()
         var capsule:=CapsuleMesh.new()
@@ -542,8 +565,38 @@ func _make_bot(ally: bool,idx: int) -> void:
         shell.mesh=capsule
         shell.material_override=_mat(Color("457caa") if ally else Color("b65e4c"))
         bot.add_child(shell)
+    var overhead:=Label3D.new()
+    overhead.text=("CT "+str(idx+1)) if ally else ("OP "+str(idx+1))
+    overhead.font_size=22
+    overhead.pixel_size=.006
+    overhead.modulate=Color("73dbd3") if ally else Color("ed977b")
+    overhead.position=Vector3(0,1.48,0)
+    overhead.billboard=BaseMaterial3D.BILLBOARD_ENABLED
+    bot.add_child(overhead)
     scene_root.add_child(bot)
     bots.append(bot)
+
+func _set_bot_anim(bot:CharacterBody3D,want:String) -> void:
+    if not bot.has_meta("animation_player"):return
+    var ap=bot.get_meta("animation_player") as AnimationPlayer
+    if not is_instance_valid(ap):return
+    if bot.get_meta("animation_state","")==want:return
+    var chosen=""
+    for nm in ap.get_animation_list():
+        var low=String(nm).to_lower()
+        if low.contains(want):
+            chosen=String(nm)
+            break
+    if chosen=="":
+        for nm in ap.get_animation_list():
+            if String(nm).to_lower().contains("idle"):
+                chosen=String(nm)
+                break
+    if chosen=="" and ap.get_animation_list().size()>0:
+        chosen=String(ap.get_animation_list()[0])
+    if chosen!="":
+        ap.play(chosen,.18)
+        bot.set_meta("animation_state",want)
 
 func _physics_process(dt: float) -> void:
     if not running:return
@@ -598,6 +651,7 @@ func _physics_process(dt: float) -> void:
         bot.velocity.z=move_toward(bot.velocity.z,vel.z,dt*8)
         bot.velocity.y-=GRAVITY*dt
         bot.move_and_slide()
+        _set_bot_anim(bot,"run" if Vector2(bot.velocity.x,bot.velocity.z).length()>1.8 else "idle")
         bot.look_at(Vector3(target.global_position.x,bot.global_position.y,target.global_position.z),Vector3.UP)
         var cooldown=float(bot.get_meta("shot"))-dt
         if cooldown<=0.0 and d<33:
