@@ -784,6 +784,27 @@ func _make_label(parent: Node, text: String, font: int, color: Color) -> Label:
     parent.add_child(l)
     return l
 
+func _make_style(bg:Color,line:Color,rounded:int=8) -> StyleBoxFlat:
+    var style:=StyleBoxFlat.new()
+    style.bg_color=bg
+    style.border_color=line
+    style.set_border_width_all(1)
+    style.set_corner_radius_all(rounded)
+    style.content_margin_left=14.0
+    style.content_margin_right=14.0
+    style.content_margin_top=13.0
+    style.content_margin_bottom=13.0
+    return style
+
+func _style_button(b:Button,bg:Color,accent:Color) -> void:
+    b.add_theme_stylebox_override("normal",_make_style(bg,accent))
+    b.add_theme_stylebox_override("hover",_make_style(Color("243b48"),Color("f0b671")))
+    b.add_theme_stylebox_override("pressed",_make_style(Color("405969"),Color("f0bf7b")))
+    b.add_theme_stylebox_override("focus",_make_style(Color(0,0,0,0),Color("f0b671")))
+    b.add_theme_color_override("font_color",Color("eff5f7"))
+    b.add_theme_color_override("font_hover_color",Color("fff4dc"))
+    b.add_theme_font_size_override("font_size",19)
+
 func _create_ui() -> void:
     ui=CanvasLayer.new()
     ui.layer=10
@@ -792,50 +813,138 @@ func _create_ui() -> void:
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     hud.mouse_filter=Control.MOUSE_FILTER_IGNORE
     ui.add_child(hud)
-    top_label=_make_label(hud,"CONTACT ZERO",24,Color("e7f2f7"))
-    top_label.position=Vector2(36,20)
-    info_label=_make_label(hud,"5 v 5",19,Color("f0ac7b"))
-    info_label.position=Vector2(36,51)
-    hp_label=_make_label(hud,"100",22,Color("b2dfc6"))
+    var hudbar:=ColorRect.new()
+    hudbar.color=Color(.025,.05,.068,.79)
+    hudbar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+    hudbar.offset_bottom=94
+    hudbar.mouse_filter=Control.MOUSE_FILTER_IGNORE
+    hud.add_child(hudbar)
+    top_label=_make_label(hud,"CONTACT  ZERO      /      TACTICAL OPERATIONS",23,Color("edf5f7"))
+    top_label.position=Vector2(37,15)
+    info_label=_make_label(hud,"5V5  •  РЕЖИМ УНИЧТОЖЕНИЯ",17,Color("f0b97e"))
+    info_label.position=Vector2(39,52)
+    var bottombar:=ColorRect.new()
+    bottombar.color=Color(.025,.047,.064,.78)
+    bottombar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+    bottombar.offset_top=-110
+    bottombar.mouse_filter=Control.MOUSE_FILTER_IGNORE
+    hud.add_child(bottombar)
+    hp_label=_make_label(hud,"ЗДОРОВЬЕ   100",21,Color("afdfbf"))
     hp_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-    hp_label.position=Vector2(33,-70)
-    ammo_label=_make_label(hud,"30 / 120",30,Color("eaf4f6"))
+    hp_label.position=Vector2(34,-71)
+    ammo_label=_make_label(hud,"30 / 150   AK-74M",28,Color("eaf4f6"))
     ammo_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-    ammo_label.position=Vector2(-285,-78)
-    hint_label=_make_label(hud,"",17,Color("f6d19b"))
+    ammo_label.position=Vector2(-370,-74)
+    hint_label=_make_label(hud,"",16,Color("ffd09a"))
     hint_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
-    hint_label.position=Vector2(36,-105)
-    cross=_make_label(hud,"+",30,Color("e5f8f7"))
-    cross.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-    cross.position=Vector2(-9,-24)
+    hint_label.position=Vector2(35,-112)
+    grenade_label=_make_label(hud,"G  HE  ×2     H  SMOKE  ×1       B — МАГАЗИН",15,Color("c0d3dc"))
+    grenade_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
+    grenade_label.position=Vector2(-469,-109)
+    cross=_make_label(hud,"",1,Color("e5f8f7"))
+    cross.visible=false
+    crosshair_ui=Control.new()
+    crosshair_ui.set_script(load("res://crosshair.gd"))
+    crosshair_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    hud.add_child(crosshair_ui)
     damage_flash=ColorRect.new()
     damage_flash.color=Color(1,.12,.1,0)
     damage_flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     damage_flash.mouse_filter=Control.MOUSE_FILTER_IGNORE
     hud.add_child(damage_flash)
+    # Fullscreen menu with deliberate typographic hierarchy and three playable arenas.
     cover=ColorRect.new()
-    cover.color=Color(0.035,0.062,0.09,.98)
+    cover.color=Color("070f17")
     cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     ui.add_child(cover)
+    var strip:=ColorRect.new()
+    strip.color=Color("df9456")
+    strip.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+    strip.offset_bottom=6
+    cover.add_child(strip)
+    var superhead:=Label.new()
+    superhead.text="C Z     //     T A C T I C A L    S Y S T E M S"
+    superhead.position=Vector2(69,44)
+    superhead.add_theme_font_size_override("font_size",16)
+    superhead.add_theme_color_override("font_color",Color("b9a993"))
+    cover.add_child(superhead)
     panel=VBoxContainer.new()
-    panel.custom_minimum_size=Vector2(520,430)
-    panel.position=Vector2(70,115)
+    panel.position=Vector2(67,104)
+    panel.custom_minimum_size=Vector2(700,545)
+    panel.add_theme_constant_override("separation",13)
     cover.add_child(panel)
-    title_label=_make_label(panel,"CONTACT ZERO",72,Color("f0f6fa"))
-    subtitle_label=_make_label(panel,"REMASTERED   /   NATIVE WINDOWS BUILD",22,Color("ed9e72"))
-    _make_label(panel,"",18,Color.WHITE)
-    _make_label(panel,"ВЫБЕРИ КАРТУ И НАЧНИ МАТЧ 5 НА 5",24,Color("bed0dd"))
+    title_label=_make_label(panel,"CONTACT   ZERO",64,Color("f0f6fa"))
+    subtitle_label=_make_label(panel,"TACTICAL FPS  /  WINDOWS  /  VERSION 3",22,Color("ed9e72"))
+    var divider=HSeparator.new()
+    panel.add_child(divider)
+    _make_label(panel,"ВЫБЕРИ ЛОКАЦИЮ",19,Color("b8c9d1"))
     for i in range(3):
         var b:=Button.new()
-        b.text=["01   BASTION     — Крепость","02   NIGHTSHIFT — Ночной порт","03   RIDGE      — Снежная база"][i]
-        b.custom_minimum_size=Vector2(510,66)
-        b.add_theme_font_size_override("font_size",22)
+        b.text=["01     BASTION            ГОРОДСКИЕ КВАРТАЛЫ  /  ДЕНЬ",
+                "02     NIGHTSHIFT         ПРОМЫШЛЕННЫЙ ПОРТ  /  НОЧЬ",
+                "03     RIDGE                 ВОЕННАЯ БАЗА  /  СНЕГ"][i]
+        b.alignment=HORIZONTAL_ALIGNMENT_LEFT
+        b.custom_minimum_size=Vector2(690,69)
+        _style_button(b,Color("152430"),Color("405d70"))
         b.pressed.connect(_start_match.bind(i))
         panel.add_child(b)
-    _make_label(panel,"",16,Color.WHITE)
-    _make_label(panel,"WASD — движение   |   MOUSE — прицел   |   ЛКМ — огонь",16,Color("abbfcd"))
-    _make_label(panel,"SHIFT — бег   |   CTRL — присесть   |   SPACE — прыжок",16,Color("abbfcd"))
-    _make_label(panel,"R — перезарядка   |   ESC — меню",16,Color("abbfcd"))
+    var foot=_make_label(panel,"5 НА 5   •   6 ВИДОВ ОРУЖИЯ   •   ДЫМ И ОСКОЛОЧНЫЕ ГРАНАТЫ",18,Color("9fb3bf"))
+    foot.position.y+=9
+    _make_label(panel,"WASD / SHIFT / CTRL     •     ЛКМ ОГОНЬ     •     ПКМ ПРИЦЕЛ    •    R ПЕРЕЗАРЯДКА",14,Color("8ca6b4"))
+    _make_label(panel,"1–6 ОРУЖИЕ     •     B МАГАЗИН     •     G/H ГРАНАТЫ     •     ESC МЕНЮ",14,Color("8ca6b4"))
+    var right_panel:=PanelContainer.new()
+    right_panel.position=Vector2(814,119)
+    right_panel.custom_minimum_size=Vector2(395,425)
+    right_panel.add_theme_stylebox_override("panel",_make_style(Color("101c26"),Color("30495b"),10))
+    cover.add_child(right_panel)
+    var info_col:=VBoxContainer.new()
+    info_col.add_theme_constant_override("separation",14)
+    right_panel.add_child(info_col)
+    _make_label(info_col,"ОПЕРАЦИЯ   /   CONTACT ZERO",18,Color("efba7a"))
+    _make_label(info_col,"ТАКТИЧЕСКИЙ ШУТЕР",26,Color("f3f5f8"))
+    _make_label(info_col,"Играй за синюю команду, защищай позиции и уничтожь противников. Используй укрытия и экономику.",17,Color("bdcbd4")).autowrap_mode=TextServer.AUTOWRAP_WORD
+    _make_label(info_col,"СНАРЯЖЕНИЕ",17,Color("efba7a"))
+    _make_label(info_col,"АК-74M  ·  M4A1  ·  AWP\nDESERT EAGLE  ·  MP5  ·  USP-S",17,Color("d7e4e9"))
+    _make_label(info_col,"В РАЗРАБОТКЕ",17,Color("efba7a"))
+    _make_label(info_col,"Локации, стрельба, бот-матч, гранаты и выбор оружия. Это прототип, не копия CS2.",16,Color("a0b2be")).autowrap_mode=TextServer.AUTOWRAP_WORD
+    # Buy panel
+    buy_overlay=ColorRect.new()
+    buy_overlay.color=Color(.015,.028,.042,.96)
+    buy_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    ui.add_child(buy_overlay)
+    var buy_col:=VBoxContainer.new()
+    buy_col.position=Vector2(310,60)
+    buy_col.custom_minimum_size=Vector2(660,590)
+    buy_col.add_theme_constant_override("separation",7)
+    buy_overlay.add_child(buy_col)
+    _make_label(buy_col,"АРСЕНАЛ    /    CONTACT ZERO",38,Color("f0f4f6"))
+    _make_label(buy_col,"ВЫБЕРИ ОРУЖИЕ  •  ДЕНЬГИ СПИСЫВАЮТСЯ ПРИ ПОКУПКЕ",16,Color("edb17b"))
+    for i in range(GUNS.size()):
+        var button:=Button.new()
+        var data:Dictionary=GUNS[i]
+        button.text=str(i+1)+"     "+String(data["name"])+"       $"+str(data["price"])+"       [ "+str(data["damage"])+" DMG ]"
+        button.alignment=HORIZONTAL_ALIGNMENT_LEFT
+        button.custom_minimum_size=Vector2(625,51)
+        _style_button(button,Color("152833"),Color("3b5966"))
+        button.pressed.connect(_buy_gun.bind(i))
+        buy_col.add_child(button)
+    for i in range(2):
+        var g_button:=Button.new()
+        g_button.text="   "+("ОСКОЛОЧНАЯ   +1    $300" if i==0 else "ДЫМОВАЯ          +1    $250")
+        _style_button(g_button,Color("2b2d30"),Color("586263"))
+        g_button.pressed.connect(_buy_grenade.bind(i))
+        buy_col.add_child(g_button)
+    var close:=Button.new()
+    close.text="НАЗАД К ИГРЕ   /   B"
+    _style_button(close,Color("454027"),Color("bba76a"))
+    close.pressed.connect(_resume_from_buy)
+    buy_col.add_child(close)
+    buy_overlay.hide()
+
+func _resume_from_buy() -> void:
+    buy_overlay.hide()
+    running=true
+    Input.mouse_mode=Input.MOUSE_MODE_CAPTURED
 
 func _show_menu() -> void:
     cover.show()
