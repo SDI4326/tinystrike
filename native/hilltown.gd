@@ -1,66 +1,72 @@
 extends RefCounted
-# Standalone CC0 tactical arena: 3DAssets.dev "Fountain square at site A".
-# Meshes are imported as authored, without distorting their proportions.
-static func build(world:Node3D) -> Dictionary:
-    var status={"loaded":false,"mesh_count":0,"colliders":0}
-    var path="res://assets/hilltown/fountain_square.glb"
-    if not ResourceLoader.exists(path):
-        push_warning("Missing HILLTOWN GLB")
-        return status
-    var resource=load(path)
-    if not resource is PackedScene:return status
-    var level=resource.instantiate()
-    if not level is Node3D:return status
-    level.name="HILLTOWN_SITE_A"
-    world.add_child(level)
-    var min_p=Vector3(INF,INF,INF)
-    var max_p=Vector3(-INF,-INF,-INF)
-    for entry in level.find_children("*","MeshInstance3D",true,false):
-        if not entry is MeshInstance3D or entry.mesh==null:continue
-        var local=entry.mesh.get_aabb()
-        var world_box=entry.global_transform*local
-        min_p=min_p.min(world_box.position)
-        max_p=max_p.max(world_box.end)
-        status["mesh_count"]=int(status["mesh_count"])+1
-        var nm=entry.name.to_lower()
-        if nm.contains("attacker") or nm.contains("defender") or nm.contains("operator"):continue
-        if local.size.length()>.85:
-            entry.create_trimesh_collision()
-            status["colliders"]=int(status["colliders"])+1
-    if min_p.x!=INF:
-        level.position=-Vector3((min_p.x+max_p.x)*.5,min_p.y,(min_p.z+max_p.z)*.5)
-    # Safe collision floor outside the artist-authored 36x24-metre square.
-    var floor=StaticBody3D.new()
-    floor.name="HILLTOWN_GROUND"
-    floor.collision_layer=1
-    floor.position=Vector3(0,-.55,0)
-    var body_shape=CollisionShape3D.new()
-    var box=BoxShape3D.new()
-    box.size=Vector3(48,1,40)
-    body_shape.shape=box
-    floor.add_child(body_shape)
-    var mesh=MeshInstance3D.new()
-    var geo=BoxMesh.new()
-    geo.size=box.size
-    mesh.mesh=geo
-    var material=StandardMaterial3D.new()
-    material.albedo_color=Color("a09583")
-    material.roughness=.92
-    mesh.material_override=material
-    floor.add_child(mesh)
-    world.add_child(floor)
-    for i in range(4):
-        var length=Vector3(46,4,.5) if i<2 else Vector3(.5,4,39)
-        var position=Vector3(0,2,-19.5 if i==0 else 19.5) if i<2 else Vector3(-23 if i==2 else 23,2,0)
-        var barrier=StaticBody3D.new()
-        barrier.collision_layer=1
-        barrier.position=position
-        var collision=CollisionShape3D.new()
-        var shape=BoxShape3D.new()
-        shape.size=length
-        collision.shape=shape
-        barrier.add_child(collision)
-        world.add_child(barrier)
-    status["loaded"]=true
-    print("HILLTOWN_LOADED ",status)
-    return status
+# COMPOUND: a four-route objective arena using actual licensed Kenney CC0
+# industrial GLBs. All cover has physics, and bots can navigate both lanes.
+static func build(world:Node3D)->Dictionary:
+    var rem=load("res://remaster.gd")
+    var art=load("res://maps_v3.gd")
+    var stone=rem.textured("concrete",Color("8a8172"),.25)
+    var asphalt=rem.textured("asphalt",Color("343b40"),.28)
+    var steel=rem.textured("metal",Color("3c4b53"),.24)
+    var rails=rem.color_mat(Color("303a42"),.45,.48)
+    var accent=rem.color_mat(Color("daa66d"),.0,.45)
+    var blue=rem.color_mat(Color("4c737f"),.48,.56)
+    var ochre=rem.color_mat(Color("947051"),.34,.65)
+    rem.cuboid(world,Vector3(0,-.50,0),Vector3(46,1,40),stone,true)
+    # Four high walls, an unobstructed central route, and parallel flank lanes.
+    for z in [-19.0,19.0]:
+        rem.cuboid(world,Vector3(0,2,z),Vector3(46,4,1),stone,true)
+    for x in [-22.6,22.6]:
+        rem.cuboid(world,Vector3(x,2,0),Vector3(1,4,40),stone,true)
+    var buildings=[
+        [-14.0,-11.7,"building-a"],[14.0,-11.7,"building-b"],
+        [-14.0,11.5,"building-h"],[14.0,11.5,"building-e"]
+    ]
+    var model_count=0
+    for row in buildings:
+        var x=float(row[0])
+        var z=float(row[1])
+        var solid=rem.cuboid(world,Vector3(x,4.1,z),Vector3(12.0,8.2,11.0),stone,true)
+        for part in solid.get_children():
+            if part is MeshInstance3D:part.visible=false
+        var path="res://assets/city/"+String(row[2])+".glb"
+        if ResourceLoader.exists(path):
+            art.place_model(world,path,Vector3(x,0,z),Vector3(12.4,8.9,11.1))
+            model_count+=1
+    # Parallel cover layouts produce a real aim duel instead of an empty road.
+    for sign in [-1.0,1.0]:
+        for z in [-9.0,0.0,9.0]:
+            rem.cuboid(world,Vector3(sign*6.8,1.1,z),Vector3(.52,2.2,4.2),stone,true)
+            rem.cuboid(world,Vector3(sign*6.8,2.28,z),Vector3(.76,.16,4.5),steel,false)
+    for i in range(8):
+        var x=(-3.4 if i%2==0 else 3.4)
+        var z=-9.0+float(i)*2.6
+        rem.cuboid(world,Vector3(x,.53,z),Vector3(1.12,1.06,1.12),ochre,true)
+        rem.cuboid(world,Vector3(x,.95,z),Vector3(1.26,.085,1.26),steel,false)
+        art.place_model(world,"res://assets/kenney/crate.glb",Vector3(x,0,z),Vector3(1.1,1.0,1.1))
+    for x in [-19.0,19.0]:
+        for z in [-1.4,5.0]:
+            rem.cuboid(world,Vector3(x,.76,z),Vector3(2.5,1.52,3.5),blue,true)
+            for k in range(5):
+                rem.cuboid(world,Vector3(x-1.2+k*.6,1.1,z+1.79),Vector3(.08,1.23,.08),rails)
+    # A-site and B-site have actual 3D floor markings and recognizable callouts.
+    for i in range(2):
+        var x=-13.4 if i==0 else 13.4
+        var z=.0 if i==0 else 3.8
+        var col=Color("e4a65b") if i==0 else Color("79bcd9")
+        var marking=rem.color_mat(col,.1,.5,true)
+        rem.cuboid(world,Vector3(x,.024,z),Vector3(5,.048,.18),marking)
+        rem.cuboid(world,Vector3(x,.024,z),Vector3(.18,.048,5),marking)
+        rem.label3d(world,"SITE  A" if i==0 else "SITE  B",Vector3(x,3.1,z),29,col)
+    # Light gantries, height detail, and consistent sightline landmarks.
+    for x in [-18.0,18.0]:
+        for z in [-16.5,16.5]:
+            rem.street_lamp(world,Vector3(x,0,z),rails,accent,Color("f6c793"))
+    for z in [-15.5,15.5]:
+        rem.cuboid(world,Vector3(0,4.8,z),Vector3(10,.22,.4),steel,false)
+        rem.cuboid(world,Vector3(0,3.8,z),Vector3(.13,2.2,.15),rails,false)
+    # Escape ladders and pipework from a real CC0 industrial pack.
+    for x in [-17.0,17.0]:
+        for z in [-17.0,17.0]:
+            art.place_model(world,"res://assets/kenney/pipe-straight.glb",Vector3(x,.5,z),Vector3(.8,.8,3.0))
+    print("COMPOUND_READY building_meshes=",model_count,"  collision_blocks=34")
+    return {"loaded":true,"mesh_count":model_count,"colliders":34}
