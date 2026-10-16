@@ -160,8 +160,15 @@ jobs:
 
           No browser and no installation of Godot required.
           Unverified Windows builds may prompt SmartScreen; this file is unsigned.
-          3D soldiers/arms adapted from Quaternius Toon Shooter Game Kit (CC0).
-          Contact Zero native game: community prototype, NOT Counter-Strike source.
+          ORIGINAL ASSETS / LICENSES:
+          BAMEN animated military soldier — CC BY 4.0 (credit BAMEN).
+          Cransh FPS AK-74M hands — CC BY 4.0 (credit Cransh).
+          Kenney City Kit Industrial — CC0.
+          Six gun meshes from TinyStrike — ISC.
+          Full asset details: see github.com/SDI4326/tinystrike branch contact-zero-native-v3
+          CONTROLS: 1-6 switch guns; B buy; G throw HE; H throw smoke.
+          F6/F7 rotate weapon viewmodel, F8 reset orientation.
+          This is a native Godot tactical FPS prototype, not Counter-Strike code.
           EOF
           (cd native/build && zip -9 -q CONTACT_ZERO_WINDOWS.zip CONTACT_ZERO.exe README.txt)
           ls -lh native/build/*
