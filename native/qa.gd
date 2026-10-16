@@ -34,6 +34,16 @@ func _verify() -> void:
             push_error("QA: Player/camera/world missing")
             quit(1)
             return
+        if not is_instance_valid(game.nav_grid) or game.nav_grid.counted_colliders<10:
+            push_error("QA: Navigation grid missing colliders on map "+str(mode))
+            quit(1)
+            return
+        var route=game.nav_grid.route(Vector3(0,1.2,27),Vector3(0,1.2,-27))
+        if route.size()<5:
+            push_error("QA: No A* walking route through map "+str(mode))
+            quit(1)
+            return
+        print("QA_NAV_OK map=",mode," waypoints=",route.size()," obstacles=",game.nav_grid.counted_colliders)
         print("QA_MAP_OK ",mode," bots=",game.bots.size()," rig=",game.using_authored_rig)
         game._shoot()
         await process_frame
