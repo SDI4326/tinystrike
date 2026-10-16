@@ -76,6 +76,10 @@ var rifle_pose := 0
 var base_weapon_transform: Node3D
 var gun_orientation := 0.0
 var gun_float := 0.0
+var nav_grid: RefCounted
+var bot_skill := 0.62
+var suppress_bots := false
+var total_nav_replans := 0
 const GUNS = [
     {"name":"AK-74M","model":"ak47","mag":30,"damage":32.0,"interval":.105,"reload":2.55,"reserve":150,"price":2700,"recoil":.014},
     {"name":"M4A1","model":"m4a1","mag":30,"damage":28.0,"interval":.087,"reload":2.25,"reserve":150,"price":3000,"recoil":.011},
@@ -195,6 +199,9 @@ func _reset_scene(which: int) -> void:
             _box(scene_root,Vector3(-30+i*9,.55,6+i%3*4),Vector3(4,1.1,2),tex_floor)
     load("res://remaster.gd").apply(scene_root,which)
     load("res://maps_v3.gd").apply(scene_root,which)
+    nav_grid=load("res://bot_nav.gd").new()
+    nav_grid.build(scene_root)
+    total_nav_replans=0
     _make_player()
     for n in range(4):
         _make_bot(true,n)
@@ -540,6 +547,11 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.set_meta("ally",ally)
     bot.set_meta("shot",rng.randf_range(.4,1.8))
     bot.set_meta("wander",rng.randf_range(-1,1))
+    bot.set_meta("last_target",Vector3.ZERO)
+    bot.set_meta("next_repath",0.0)
+    bot.set_meta("path",PackedVector2Array())
+    bot.set_meta("path_i",0)
+    bot.set_meta("reaction",rng.randf_range(.20,.55))
     var pack_path="res://assets/military_soldier.glb"
     if not ResourceLoader.exists(pack_path):
         pack_path="res://assets/soldier_ct.glb" if ally else "res://assets/soldier_t.glb"
@@ -633,55 +645,77 @@ func _physics_process(dt: float) -> void:
     player.move_and_slide()
     neck.position.y=lerpf(neck.position.y,.35 if crouch else .63,dt*11)
     for bot in bots:
-        if not is_instance_valid(bot):continue
-        var target=player
-        if bot.get_meta("ally"):
-            target=null
-            var best=INF
-            for other in bots:
-                if not is_instance_valid(other) or other.get_meta("ally"):continue
-                var dist=bot.global_position.distance_squared_to(other.global_position)
-                if dist<best:
-                    best=dist
-                    target=other
+        if not is_instance_valid(bot) or bot.is_queued_for_deletion():continue
+        var ally:bool=bool(bot.get_meta("ally"))
+        var target:Node3D=null
+        var best=INF
+        if not ally and health>0:
+            target=player
+            best=bot.global_position.distance_squared_to(player.global_position)
+        for other in bots:
+            if other==bot or not is_instance_valid(other) or other.is_queued_for_deletion():continue
+            if bool(other.get_meta("ally"))==ally:continue
+            var dist=bot.global_position.distance_squared_to(other.global_position)
+            if dist<best:
+                best=dist
+                target=other
         if not is_instance_valid(target):continue
-        var vec=target.global_position-bot.global_position
-        var d=vec.length()
-        var dir=Vector3(vec.x,0,vec.z).normalized()
-        var sidestep=Vector3(-dir.z,0,dir.x)*sin(game_time*.9+float(bot.get_instance_id()%11))
-        var approach=dir*.9+sidestep*.42
-        var origin=bot.global_position+Vector3(0,.30,0)
-        var q_obstacle=PhysicsRayQueryParameters3D.create(origin,origin+dir*2.6)
-        q_obstacle.exclude=[bot.get_rid(),player.get_rid()]
-        var obstacle=get_world_3d().direct_space_state.intersect_ray(q_obstacle)
-        if not obstacle.is_empty():
-            var surface=obstacle["normal"]
-            var tangent=Vector3(-dir.z,0,dir.x)
-            var side=signf(surface.dot(tangent))
-            approach=tangent*side*.8+dir*.25
-            if absf(side)<.2:
-                approach=tangent if bot.get_instance_id()%2==0 else -tangent
-        var vel=approach.normalized()*(3.6 if d>14 else 2.2 if d>6 else -1.3)
-        bot.velocity.x=move_toward(bot.velocity.x,vel.x,dt*8)
-        bot.velocity.z=move_toward(bot.velocity.z,vel.z,dt*8)
+        var delta=target.global_position-bot.global_position
+        var range_m=delta.length()
+        var direct=Vector3(delta.x,0,delta.z).normalized()
+        var move_dir=direct
+        if is_instance_valid(nav_grid) and range_m>6.0:
+            var next_repath=float(bot.get_meta("next_repath"))
+            if game_time>=next_repath:
+                var path:PackedVector2Array=nav_grid.route(bot.global_position,target.global_position)
+                bot.set_meta("path",path)
+                bot.set_meta("path_i",1 if path.size()>1 else 0)
+                bot.set_meta("next_repath",game_time+rng.randf_range(.65,1.3))
+                total_nav_replans+=1
+            var path_points:PackedVector2Array=bot.get_meta("path")
+            var index:int=int(bot.get_meta("path_i"))
+            if path_points.size()>index:
+                var waypoint=path_points[index]
+                var heading=Vector3(waypoint.x-bot.global_position.x,0.0,waypoint.y-bot.global_position.z)
+                if heading.length()<1.05 and index+1<path_points.size():
+                    index+=1
+                    bot.set_meta("path_i",index)
+                    waypoint=path_points[index]
+                    heading=Vector3(waypoint.x-bot.global_position.x,0.0,waypoint.y-bot.global_position.z)
+                if heading.length()>.15:
+                    move_dir=heading.normalized()
+        var evasive=Vector3(-direct.z,0,direct.x)*sin(game_time*.73+float(bot.get_instance_id()%17))
+        if range_m<10:
+            move_dir=(move_dir*.35+evasive*.7).normalized()
+        var speed=4.1 if range_m>14 else 2.5 if range_m>5.0 else 1.5
+        var desired=move_dir*speed
+        bot.velocity.x=move_toward(bot.velocity.x,desired.x,dt*13.0)
+        bot.velocity.z=move_toward(bot.velocity.z,desired.z,dt*13.0)
         bot.velocity.y-=GRAVITY*dt
         bot.move_and_slide()
-        _set_bot_anim(bot,"run" if Vector2(bot.velocity.x,bot.velocity.z).length()>1.8 else "idle")
-        bot.look_at(Vector3(target.global_position.x,bot.global_position.y,target.global_position.z),Vector3.UP)
+        _set_bot_anim(bot,"run" if Vector2(bot.velocity.x,bot.velocity.z).length()>2.0 else "idle")
+        if range_m<28:
+            bot.look_at(Vector3(target.global_position.x,bot.global_position.y,target.global_position.z),Vector3.UP)
+        elif move_dir.length()>.1:
+            bot.look_at(bot.global_position+move_dir,Vector3.UP)
         var cooldown=float(bot.get_meta("shot"))-dt
-        if cooldown<=0.0 and d<33:
-            cooldown=rng.randf_range(.5,1.2)
-            var source=bot.global_position+Vector3(0,.55,0)
-            var dest=target.global_position+Vector3(0,.45,0)
-            var query=PhysicsRayQueryParameters3D.create(source,dest)
+        var reacting=float(bot.get_meta("reaction"))-dt
+        if cooldown<=0.0 and reacting<=0 and range_m<34.0 and not suppress_bots:
+            cooldown=rng.randf_range(.32,.8)/bot_skill
+            var muzzle_origin=bot.global_position+Vector3(0,.53,0)
+            var target_pos=target.global_position+Vector3(0,.48,0)
+            var query=PhysicsRayQueryParameters3D.create(muzzle_origin,target_pos)
             query.exclude=[bot.get_rid()]
             var hit=get_world_3d().direct_space_state.intersect_ray(query)
             if not hit.is_empty() and hit["collider"]==target:
-                if target==player:
-                    _hurt(7.0+rng.randf_range(0,8))
-                else:
-                    _hurt_bot(target,12.0,bot)
+                var accuracy=clampf(bot_skill*(1.1-range_m*.012),.14,.85)
+                if rng.randf()<accuracy:
+                    if target==player:
+                        _hurt(rng.randf_range(8,14))
+                    elif target is CharacterBody3D:
+                        _hurt_bot(target,rng.randf_range(13,21),bot)
         bot.set_meta("shot",cooldown)
+        bot.set_meta("reaction",reacting)
 
 func _process(dt: float) -> void:
     if not running:return
