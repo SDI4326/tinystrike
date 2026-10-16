@@ -369,6 +369,20 @@ func _equip(idx:int) -> void:
             gun_mesh=Node3D.new()
             gun_root.add_child(gun_mesh)
             _box(gun_mesh,Vector3(0,0,-.2),Vector3(.16,.16,.6),tex_metal,false)
+    if weapon_idx!=0:
+        # Visible articulated arm mesh for every other weapon.
+        var arms_path="res://assets/npc-arms-ct.glb"
+        if ResourceLoader.exists(arms_path):
+            var arm_resource=load(arms_path)
+            if arm_resource is PackedScene:
+                var arm_holder:=Node3D.new()
+                arm_holder.name="FPS_HANDS"
+                gun_root.add_child(arm_holder)
+                var arm_instance=arm_resource.instantiate()
+                arm_holder.add_child(arm_instance)
+                arm_holder.position=Vector3(-.25,-.15,-.14)
+                arm_holder.scale=Vector3.ONE*.72
+                arm_holder.rotation_degrees=Vector3(-8,180,0)
     mag=int(_weapon_data()["mag"])
     reserve=int(_weapon_data()["reserve"])
     reload_time=0
