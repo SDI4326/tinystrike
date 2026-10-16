@@ -2,7 +2,7 @@ name: CONTACT ZERO Windows EXE
 on:
   push:
     branches:
-      - contact-zero-native-v4-development
+      - contact-zero-native-v5-rebuild
     paths:
       - 'native/**'
       - '.github/workflows/contact-zero-windows.yml'
