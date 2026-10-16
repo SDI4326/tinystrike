@@ -48,6 +48,14 @@ jobs:
             echo "GDScript validation failed"
             exit 1
           fi
+      - name: Smoke test scene startup
+        run: |
+          set -euxo pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path native --quit-after 65 2>&1 | tee smoke.log
+          if grep -qE 'SCRIPT ERROR:|Parse Error:|Invalid call|ERROR: Cannot open|ERROR: Failed to' smoke.log; then
+            echo "Godot scene startup test failed."
+            exit 1
+          fi
       - name: Export native Windows executable
         run: |
           set -euxo pipefail
