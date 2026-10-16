@@ -49,6 +49,8 @@ jobs:
           set -euxo pipefail
           mkdir -p native/assets/tex native/assets/kenney native/assets/rig native/assets/sfx native/assets/city
           CITY="https://raw.githubusercontent.com/AetherRadar/operation-steel-tide/main/assets/models/kenney_city_kit_industrial"
+          mkdir -p native/assets/city/Textures
+          curl -fL --retry 4 "${CITY}/Textures/colormap.png" -o native/assets/city/Textures/colormap.png
           for NAME in a b c d e f g h i j k l m n; do
             curl -fL --retry 4 "${CITY}/building-${NAME}.glb" -o "native/assets/city/building-${NAME}.glb"
           done
