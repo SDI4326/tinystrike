@@ -63,6 +63,27 @@ var damage_flash: ColorRect
 var damage_flash_time := 0.0
 var running_bob := 0.0
 var current_speed := 0.0
+var weapon_idx := 0
+var grenade_he := 2
+var grenade_smoke := 1
+var grenade_time := 0.0
+var projectiles: Array = []
+var weapon_aim := false
+var crosshair_ui: Control
+var buy_overlay: Control
+var grenade_label: Label
+var rifle_pose := 0
+var base_weapon_transform: Node3D
+var gun_orientation := 0.0
+var gun_float := 0.0
+const GUNS = [
+    {"name":"AK-74M","model":"ak47","mag":30,"damage":32.0,"interval":.105,"reload":2.55,"reserve":150,"price":2700,"recoil":.014},
+    {"name":"M4A1","model":"m4a1","mag":30,"damage":28.0,"interval":.087,"reload":2.25,"reserve":150,"price":3000,"recoil":.011},
+    {"name":"AWP","model":"awp","mag":10,"damage":100.0,"interval":1.2,"reload":3.25,"reserve":40,"price":4750,"recoil":.085},
+    {"name":"DESERT EAGLE","model":"deagle","mag":7,"damage":51.0,"interval":.29,"reload":1.9,"reserve":35,"price":700,"recoil":.042},
+    {"name":"MP5","model":"mp5","mag":30,"damage":23.0,"interval":.072,"reload":2.1,"reserve":180,"price":1500,"recoil":.010},
+    {"name":"USP-S","model":"usp","mag":12,"damage":32.0,"interval":.20,"reload":1.7,"reserve":72,"price":600,"recoil":.021}
+]
 
 func _ready() -> void:
     rng.randomize()
@@ -267,7 +288,9 @@ func _make_first_person_weapon() -> void:
                 var scale_factor=1.6/maxf(.01,big)
                 authored.scale=Vector3.ONE*scale_factor
                 authored.position=-bounds.get_center()*scale_factor
-                holder.rotation=Vector3(-.27,-.54,-.10)
+                # Use a single corrected viewmodel pivot; F6/F7 calibration remains available.
+                # No arbitrary 180° flip or per-animation rotation offsets.
+                holder.rotation=Vector3(-.31,-.57+gun_orientation,-.10)
                 holder.position=Vector3(.09,-.14,-.72)
                 gun_mesh=holder
                 using_authored_rig=true
@@ -276,13 +299,13 @@ func _make_first_person_weapon() -> void:
                     fps_anim=animations[0] as AnimationPlayer
                 _play_rig_anim("idle")
     if not using_authored_rig:
-        var old="res://assets/ak47.glb"
+        var old="res://assets/"+String(GUNS[weapon_idx]["model"])+".glb"
         if ResourceLoader.exists(old):
             var oldres=load(old)
             if oldres is PackedScene:
                 gun_mesh=oldres.instantiate()
                 gun_root.add_child(gun_mesh)
-                gun_mesh.rotation.y=PI
+                gun_mesh.rotation.y=PI+gun_orientation
                 gun_mesh.scale=Vector3.ONE*.7
                 gun_mesh.position=Vector3(0,-.08,-.25)
         if not is_instance_valid(gun_mesh):
@@ -298,6 +321,172 @@ func _make_first_person_weapon() -> void:
                 hands.position=Vector3(-.22,-.18,.04)
                 hands.scale=Vector3.ONE*.65
                 hands.rotation_degrees=Vector3(-8,180,0)
+
+func _weapon_data() -> Dictionary:
+    return GUNS[weapon_idx]
+
+func _equip(idx:int) -> void:
+    if idx<0 or idx>=GUNS.size():return
+    weapon_idx=idx
+    if not is_instance_valid(gun_root):return
+    if is_instance_valid(gun_mesh):
+        gun_root.remove_child(gun_mesh)
+        gun_mesh.queue_free()
+    # Remove old fallback hands when switching from a sidearm.
+    for child in gun_root.get_children():
+        if child==muzzle:continue
+        if child is OmniLight3D:continue
+        if child is Node3D:
+            gun_root.remove_child(child)
+            child.queue_free()
+    gun_mesh=null
+    fps_anim=null
+    fps_anim_name=""
+    if weapon_idx==0:
+        _make_first_person_weapon()
+    else:
+        var path="res://assets/"+String(_weapon_data()["model"])+".glb"
+        if ResourceLoader.exists(path):
+            var resource=load(path)
+            if resource is PackedScene:
+                var holder:=Node3D.new()
+                gun_root.add_child(holder)
+                var model=resource.instantiate()
+                holder.add_child(model)
+                var bounds=_scene_mesh_bounds(model)
+                var big=maxf(bounds.size.x,maxf(bounds.size.y,bounds.size.z))
+                model.scale=Vector3.ONE*(.65/maxf(big,.001))
+                model.position=-bounds.get_center()*(.65/maxf(big,.001))
+                holder.rotation=Vector3(-.10,PI+gun_orientation,-.02)
+                holder.position=Vector3(.14,-.06,-.32)
+                gun_mesh=holder
+        if not is_instance_valid(gun_mesh):
+            gun_mesh=Node3D.new()
+            gun_root.add_child(gun_mesh)
+            _box(gun_mesh,Vector3(0,0,-.2),Vector3(.16,.16,.6),tex_metal,false)
+    mag=int(_weapon_data()["mag"])
+    reserve=int(_weapon_data()["reserve"])
+    reload_time=0
+    hint_label.text=String(_weapon_data()["name"])+"   |   R — ПЕРЕЗАРЯДКА"
+
+func _buy_gun(idx:int) -> void:
+    if idx<0 or idx>=GUNS.size():return
+    var p=int(GUNS[idx]["price"])
+    if money<p:
+        hint_label.text="НЕДОСТАТОЧНО ДЕНЕГ"
+        return
+    money-=p
+    _equip(idx)
+    buy_overlay.hide()
+    running=true
+    Input.mouse_mode=Input.MOUSE_MODE_CAPTURED
+
+func _buy_grenade(kind:int) -> void:
+    var cost=300 if kind==0 else 250
+    if money<cost:
+        hint_label.text="НЕДОСТАТОЧНО ДЕНЕГ"
+        return
+    money-=cost
+    if kind==0:
+        grenade_he+=1
+    else:
+        grenade_smoke+=1
+    if is_instance_valid(buy_overlay):
+        buy_overlay.hide()
+        running=true
+        Input.mouse_mode=Input.MOUSE_MODE_CAPTURED
+
+func _grenade_throw(smoke:bool) -> void:
+    if grenade_time>0.0:return
+    if smoke:
+        if grenade_smoke<=0:return
+        grenade_smoke-=1
+    else:
+        if grenade_he<=0:return
+        grenade_he-=1
+    grenade_time=.75
+    var sphere:=RigidBody3D.new()
+    sphere.name="SMOKE_GRENADE" if smoke else "FRAG_GRENADE"
+    sphere.mass=.45
+    sphere.continuous_cd=true
+    sphere.collision_layer=2
+    sphere.collision_mask=1|2
+    var col:=CollisionShape3D.new()
+    var shape:=SphereShape3D.new()
+    shape.radius=.12
+    col.shape=shape
+    sphere.add_child(col)
+    var mesh:=MeshInstance3D.new()
+    var ge:=SphereMesh.new()
+    ge.radius=.12
+    ge.height=.24
+    mesh.mesh=ge
+    mesh.material_override=_mat(Color("7d9c9c") if smoke else Color("526645"),.45,.42)
+    sphere.add_child(mesh)
+    scene_root.add_child(sphere)
+    sphere.global_position=camera.global_position-camera.global_transform.basis.z*1.0+Vector3(0,-.14,0)
+    sphere.linear_velocity=-camera.global_transform.basis.z*17+Vector3(0,4.6,0)+player.velocity*.25
+    projectiles.append({"body":sphere,"timer":2.5,"smoke":smoke})
+    hint_label.text="ДЫМОВАЯ ГРАНАТА!" if smoke else "ОСКОЛОЧНАЯ ГРАНАТА!"
+
+func _explode_grenade(data:Dictionary) -> void:
+    var body:RigidBody3D=data["body"]
+    if not is_instance_valid(body):return
+    var xyz=body.global_position
+    var smoke:bool=bool(data["smoke"])
+    var glow:=OmniLight3D.new()
+    glow.position=xyz
+    glow.omni_range=8
+    glow.light_energy=3.0
+    glow.light_color=Color("ccd6da") if smoke else Color("ffa653")
+    scene_root.add_child(glow)
+    var burst:=Node3D.new()
+    burst.position=xyz
+    scene_root.add_child(burst)
+    if smoke:
+        for i in range(22):
+            var p:=MeshInstance3D.new()
+            var sphere:=SphereMesh.new()
+            sphere.radius=rng.randf_range(.65,1.2)
+            sphere.height=sphere.radius*2
+            p.mesh=sphere
+            var cloud:=StandardMaterial3D.new()
+            cloud.albedo_color=Color(.51,.59,.61,.23)
+            cloud.transparency=BaseMaterial3D.TRANSPARENCY_ALPHA
+            cloud.shading_mode=BaseMaterial3D.SHADING_MODE_UNSHADED
+            p.material_override=cloud
+            p.position=Vector3(rng.randf_range(-2.3,2.3),rng.randf_range(0,2.3),rng.randf_range(-2.3,2.3))
+            burst.add_child(p)
+        var timer=get_tree().create_timer(7.0)
+        timer.timeout.connect(func():if is_instance_valid(burst):burst.queue_free())
+    else:
+        for b in bots:
+            if is_instance_valid(b) and not b.get_meta("ally"):
+                var dist=b.global_position.distance_to(xyz)
+                if dist<7.0:
+                    _hurt_bot(b,65.0*(1.0-dist/7.0)+10.0,player)
+        if is_instance_valid(player):
+            var dist=player.global_position.distance_to(xyz)
+            if dist<5:_hurt(40.0*(1.0-dist/5.0))
+        var particles:=GPUParticles3D.new()
+        particles.amount=65
+        particles.lifetime=.8
+        particles.one_shot=true
+        var process_mat:=ParticleProcessMaterial.new()
+        process_mat.direction=Vector3.UP
+        process_mat.spread=180.0
+        process_mat.initial_velocity_min=3
+        process_mat.initial_velocity_max=10
+        particles.process_material=process_mat
+        var qm:=SphereMesh.new()
+        qm.radius=.08
+        qm.height=.16
+        particles.draw_pass_1=qm
+        burst.add_child(particles)
+        particles.emitting=true
+        get_tree().create_timer(1.7).timeout.connect(func():if is_instance_valid(burst):burst.queue_free())
+    get_tree().create_timer(.3).timeout.connect(func():if is_instance_valid(glow):glow.queue_free())
+    body.queue_free()
 
 func _play_rig_anim(wanted:String) -> void:
     if not is_instance_valid(fps_anim):return
