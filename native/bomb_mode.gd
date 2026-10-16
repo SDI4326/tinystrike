@@ -10,7 +10,7 @@ var plant_progress := 0.0
 var defuse_progress := 0.0
 var carrier:CharacterBody3D
 var model:Node3D
-var signal:OmniLight3D
+var bomb_light:OmniLight3D
 var owner:Node3D
 
 func setup(world:Node3D,which:int) -> void:
@@ -75,11 +75,11 @@ func setup(world:Node3D,which:int) -> void:
     green.emission_energy_multiplier=1.4
     keypad.material_override=green
     model.add_child(keypad)
-    signal=OmniLight3D.new()
-    signal.omni_range=5.2
-    signal.light_color=Color("f6675c")
-    signal.light_energy=0
-    model.add_child(signal)
+    bomb_light=OmniLight3D.new()
+    bomb_light.omni_range=5.2
+    bomb_light.light_color=Color("f6675c")
+    bomb_light.light_energy=0
+    model.add_child(bomb_light)
     model.visible=false
 
 func set_carrier(bots:Array) -> void:
@@ -112,8 +112,8 @@ func tick(delta:float,player:CharacterBody3D,bots:Array,holding_e:bool)->String:
             plant_progress=maxf(0,plant_progress-delta*.65)
     elif stage==1:
         timer=maxf(0,timer-delta)
-        if is_instance_valid(signal):
-            signal.light_energy=4.0 if fmod(timer*2.1,1.0)<.2 else .0
+        if is_instance_valid(bomb_light):
+            bomb_light.light_energy=4.0 if fmod(timer*2.1,1.0)<.2 else .0
         var nearby=is_instance_valid(player) and player.global_position.distance_to(active_site)<2.7
         if nearby and holding_e:
             defuse_progress+=delta
