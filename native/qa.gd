@@ -123,6 +123,42 @@ func _verify() -> void:
         quit(1)
         return
     print("QA_BOMB_OK plant=3.2s defuse=5.0s fuse=40s")
-    print("NATIVE_QA_SUCCESS 4 maps, 6 guns, grenades, bomb plant/defuse, reticle, menu, animations, shooting, reload, bots, A*")
+    # NEW: the player's actual CharacterBody must physically advance on the
+    # primary route.  An A* path by itself does not prove a walkable map.
+    game._start_match(4)
+    await process_frame
+    await process_frame
+    game.running=false
+    if game.map_id!=4 or game.nav_grid.counted_colliders<25:
+        push_error("V5: IRONWORKS did not construct")
+        quit(1)
+        return
+    var start=game.player.global_position
+    for n in range(95):
+        await physics_frame
+        game.player.velocity=Vector3(0,-.5,-7.5)
+        game.player.move_and_slide()
+    var moved=start.z-game.player.global_position.z
+    if moved<8.5:
+        push_error("V5: player stuck in geometry after "+str(moved)+" metres")
+        quit(1)
+        return
+    print("QA_PLAYER_WALK_OK distance_m=",snappedf(moved,.01))
+    for lane_x in [-27.,0.,27.]:
+        var lane=game.nav_grid.route(Vector3(lane_x,1.2,36),Vector3(lane_x,1.2,-36))
+        if lane.size()<45:
+            push_error("V5: flank or middle blocked x="+str(lane_x)+" waypoints="+str(lane.size()))
+            quit(1)
+            return
+        print("QA_FULL_LANE_OK x=",lane_x," path_cells=",lane.size())
+    for site in [game.bomb.site_a,game.bomb.site_b]:
+        var route=game.nav_grid.route(Vector3(0,1.2,36),site)
+        if route.size()<12:
+            push_error("V5: can't reach bombsite "+str(site))
+            quit(1)
+            return
+        print("QA_BOMBSITE_REACHABLE ",site)
+    print("NATIVE_QA_SUCCESS 5 maps, IRONWORKS real player walking + 3 traversable lanes, 6 guns, grenades, bomb, menu, bots")
+
 
     quit(0)
