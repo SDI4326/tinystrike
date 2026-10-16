@@ -43,8 +43,8 @@ func _verify() -> void:
             push_error("QA: No A* walking route through map "+str(mode))
             quit(1)
             return
-        if mode==3 and game.scene_root.find_child("HILLTOWN_SITE_A",true,false)==null:
-            push_error("QA: Missing Hilltown authored map")
+        if mode==3 and game.nav_grid.counted_colliders<25:
+            push_error("QA: Missing COMPOUND tactical geometry")
             quit(1)
             return
         print("QA_NAV_OK map=",mode," waypoints=",route.size()," obstacles=",game.nav_grid.counted_colliders)
