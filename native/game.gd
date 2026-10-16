@@ -275,7 +275,7 @@ func _make_player() -> void:
     camera.far=150
     neck.add_child(camera)
     gun_root=Node3D.new()
-    gun_root.position=Vector3(.31,-.18,-.66)
+    gun_root.position=Vector3(.24,-.23,-.63)
     camera.add_child(gun_root)
     _make_first_person_weapon()
     muzzle=OmniLight3D.new()
@@ -335,8 +335,9 @@ func _make_first_person_weapon() -> void:
                 authored.position=-bounds.get_center()*scale_factor
                 # Use a single corrected viewmodel pivot; F6/F7 calibration remains available.
                 # No arbitrary 180° flip or per-animation rotation offsets.
-                holder.rotation=Vector3(-.45,-1.10+gun_orientation,-.12)
-                holder.position=Vector3(.23,0,-.92)
+                holder.rotation=Vector3(-.43,-.95+gun_orientation,-.10)
+                holder.position=Vector3(.44,.03,-.84)
+                holder.scale=Vector3.ONE*.87
                 gun_mesh=holder
                 using_authored_rig=true
                 var animations=authored.find_children("*","AnimationPlayer",true,false)
@@ -613,9 +614,9 @@ func _make_bot(ally: bool,idx: int) -> void:
             # Clear friend/foe identification, without repainting realistic textures.
             var emblem:=MeshInstance3D.new()
             var emblem_mesh:=BoxMesh.new()
-            emblem_mesh.size=Vector3(.10,.22,.05)
+            emblem_mesh.size=Vector3(.07,.11,.035)
             emblem.mesh=emblem_mesh
-            emblem.material_override=_mat(Color("4dd7d2") if ally else Color("f39070"),.52,.06)
+            emblem.material_override=_mat(Color("537b81") if ally else Color("9a654d"),.67,.02)
             emblem.position=Vector3(.34,.44,.11)
             bot.add_child(emblem)
     else:
@@ -785,7 +786,7 @@ func _process(dt: float) -> void:
     recoil=move_toward(recoil,0,dt*4.2)
     running_bob+=dt*(10.0 if current_speed>8.0 else 6.2 if current_speed>.5 else 1.8)
     var bob=(sin(running_bob)*.017) if current_speed>.4 else 0.0
-    gun_root.position.y=lerpf(gun_root.position.y,-.18-recoil*.12+bob,dt*16)
+    gun_root.position.y=lerpf(gun_root.position.y,-.23-recoil*.12+bob,dt*16)
     gun_root.position.z=lerpf(gun_root.position.z,-.66+cos(running_bob)*.012,dt*8)
     if is_instance_valid(muzzle):muzzle.light_energy=move_toward(muzzle.light_energy,0.0,dt*125)
     if is_instance_valid(damage_flash):
