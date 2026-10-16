@@ -569,7 +569,7 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.name=("ALLY_" if ally else "ENEMY_")+str(idx+1)
     bot.collision_layer=2
     bot.collision_mask=1|2|4
-    bot.position=Vector3((idx-2)*2.0,1.2,(-35.0 if not ally else 33.5)) if map_id==4 else Vector3((idx-2)*2.0,1.2,(-14.0 if not ally else 14.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
+    bot.position=Vector3((idx-2)*2.0,1.2,(-35.0 if not ally else 39.0)) if map_id==4 else Vector3((idx-2)*2.0,1.2,(-14.0 if not ally else 14.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
     var col:=CollisionShape3D.new()
     var shp:=CapsuleShape3D.new()
     shp.height=1.85
