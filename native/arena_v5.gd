@@ -66,14 +66,17 @@ static func make(world:Node3D)->Dictionary:
     for i in range(lots.size()):
         var item=lots[i]
         _building(world,Vector3(float(item[0]),0,float(item[1])),String(item[2]),pale if i%3!=0 else concrete,i)
-        # Distinct raised service structure, visible to the player.
-        rem.cuboid(world,Vector3(float(item[0]),9.25,float(item[1])),Vector3(10.9,.30,10.9),dark,false)
+        # Use actual authored roof, not a giant floating concrete sheet.
     for x in [-11.8,11.8]:
         for z in [-28.,-3.,22.]:
             rem.cuboid(world,Vector3(x,1.1,z),Vector3(.32,2.2,3.8),dark,true)
             # Frontward yellow hazard line, not an invisible collision.
             rem.cuboid(world,Vector3(x+.08,.06,z),Vector3(.08,.035,3.6),signA)
 
+    # Actual corrugated cargo containers interrupt long sniper sightlines.
+    # Each has a collidable body and metal ribs; lateral paths remain open.
+    rem.container(world,Vector3(0,0,14),blue,metal,0.0)
+    rem.container(world,Vector3(0,0,-15),rusty,metal,0.0)
     # Sightlines remain open: each lane has short, offset cover pieces, no dead ends.
     for pos in [
         Vector3(-6,0,-32),Vector3(6,0,-20),
