@@ -154,10 +154,23 @@ jobs:
           from PIL import Image
           from io import BytesIO
           import base64
-          shot=Image.open('native/build/CONTACT_ZERO_qa.png').convert('RGB')
-          shot.thumbnail((700,394))
+          from PIL import ImageDraw
+          src='native/build/'
+          shots=[]
+          for i in range(1,5):
+              img=Image.open(src+f'CONTACT_ZERO_candidate_{i}.png').convert('RGB')
+              img.thumbnail((540,304))
+              shots.append(img)
+          shot=Image.new('RGB',(1080,608),(13,22,30))
+          draw=ImageDraw.Draw(shot)
+          for i,img in enumerate(shots):
+              xx=(i%2)*540
+              yy=(i//2)*304
+              shot.paste(img,(xx,yy))
+              draw.rectangle((xx,yy,xx+220,yy+24),fill=(20,30,36))
+              draw.text((xx+12,yy+6),f'VIEWMODEL {i+1}',fill=(252,230,193))
           output=BytesIO()
-          shot.save(output,format='JPEG',quality=50,optimize=True)
+          shot.save(output,format='JPEG',quality=64,optimize=True)
           print('CONTACT_ZERO_RENDER_BASE64='+base64.b64encode(output.getvalue()).decode('ascii'))
           PY
           fi
