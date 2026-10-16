@@ -147,6 +147,20 @@ jobs:
           else
             echo "Screenshot not available on this GPU-less runner"
           fi
+      - name: Inspectable screenshot thumbnail
+        run: |
+          if test -s native/build/CONTACT_ZERO_qa.png; then
+            python3 - <<'PY'
+          from PIL import Image
+          from io import BytesIO
+          import base64
+          shot=Image.open('native/build/CONTACT_ZERO_qa.png').convert('RGB')
+          shot.thumbnail((700,394))
+          output=BytesIO()
+          shot.save(output,format='JPEG',quality=50,optimize=True)
+          print('CONTACT_ZERO_RENDER_BASE64='+base64.b64encode(output.getvalue()).decode('ascii'))
+          PY
+          fi
       - name: Create distribution ZIP
         run: |
           cat > native/build/README.txt <<'EOF'
