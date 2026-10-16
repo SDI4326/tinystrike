@@ -78,6 +78,20 @@ jobs:
               im.thumbnail((1024,1024),Image.Resampling.LANCZOS)
               im.save(p,quality=85) if p.suffix=='.jpg' else im.save(p,optimize=True)
               print('optimized',p,im.size)
+          # Exported Sketchfab glTF references textures/*; the source also ships
+          # the same bitmaps as scene_0..scene_6 in its root.
+          expected=[
+            'arms_baseColor.png',
+            'arms_metallicRoughness.png',
+            'arms_normal.png',
+            'ak74m_baseColor.png',
+            'ak74m_metallicRoughness.png',
+            'ak74m_normal.png',
+            'ak74m_specularf0.png',
+          ]
+          (base/'rig/textures').mkdir(parents=True,exist_ok=True)
+          for i,name in enumerate(expected):
+              (base/'rig'/f'scene_{i}.png').rename(base/'rig/textures'/name)
           gltf=json.loads((base/'rig/scene.gltf').read_text())
           print('Authored AK animations:',[a['name'] for a in gltf.get('animations',[])])
           for im in gltf.get('images',[]):
