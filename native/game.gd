@@ -145,7 +145,8 @@ func _reset_scene(which: int) -> void:
         [Color("a9a08c"),Color("8d8070"),Color("b3a288")],
         [Color("435460"),Color("435864"),Color("536673")],
         [Color("b5c3cd"),Color("8394a2"),Color("9caebc")],
-        [Color("978d7e"),Color("a5977f"),Color("aebbc5")]
+        [Color("978d7e"),Color("a5977f"),Color("aebbc5")],
+        [Color("9b9386"),Color("726d61"),Color("b7aa97")]
     ][which]
     sky_tint = colors[2]
     tex_floor = load("res://remaster.gd").textured("asphalt",colors[0],.16)
@@ -172,6 +173,17 @@ func _reset_scene(which: int) -> void:
     sun.light_energy = .48 if which == 1 else .88
     sun.shadow_enabled = true
     scene_root.add_child(sun)
+    if which==4:
+        var arena=load("res://arena_v5.gd").make(scene_root)
+        if not arena["built"]:push_error("V5 map missing")
+        nav_grid=load("res://bot_nav.gd").new()
+        nav_grid.build(scene_root)
+        total_nav_replans=0
+        _make_player()
+        for n in range(4):_make_bot(true,n)
+        for n in range(5):_make_bot(false,n)
+        _init_bomb()
+        return
     if which==3:
         var result=load("res://hilltown.gd").build(scene_root)
         if not result["loaded"]:
@@ -251,7 +263,7 @@ func _make_player() -> void:
     sh.radius=.35
     col.shape=sh
     player.add_child(col)
-    player.position=Vector3(0,1.2,9) if map_id==3 else Vector3(0,1.2,28)
+    player.position=Vector3(0,1.2,36) if map_id==4 else Vector3(0,1.2,9) if map_id==3 else Vector3(0,1.2,28)
     scene_root.add_child(player)
     neck=Node3D.new()
     neck.position.y=.63
@@ -557,7 +569,7 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.name=("ALLY_" if ally else "ENEMY_")+str(idx+1)
     bot.collision_layer=2
     bot.collision_mask=1|2|4
-    bot.position=Vector3((idx-2)*2.0,1.2,(-14.0 if not ally else 14.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
+    bot.position=Vector3((idx-2)*2.0,1.2,(-35.0 if not ally else 33.5)) if map_id==4 else Vector3((idx-2)*2.0,1.2,(-14.0 if not ally else 14.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
     var col:=CollisionShape3D.new()
     var shp:=CapsuleShape3D.new()
     shp.height=1.85
@@ -806,7 +818,7 @@ func _process(dt: float) -> void:
         if is_instance_valid(bot) and not bot.get_meta("ally"):
             remaining+=1
     var time_text="%02d:%02d" % [int(round_time)/60,int(round_time)%60]
-    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","COMPOUND"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
+    top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE","COMPOUND","IRONWORKS"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
     info_label.text="СПЕЦНАЗ  "+str(score_blue)+"  :  "+str(score_red)+"  АТАКУЮЩИЕ      ПРОТИВНИКИ: "+str(remaining)
     if is_instance_valid(bomb_label) and is_instance_valid(bomb):
         if bomb.stage==1:
@@ -1048,18 +1060,15 @@ func _create_ui() -> void:
     var divider=HSeparator.new()
     panel.add_child(divider)
     _make_label(panel,"ВЫБЕРИ ЛОКАЦИЮ",19,Color("b8c9d1"))
-    for i in range(4):
-        var b:=Button.new()
-        b.text=["01     BASTION            ГОРОДСКИЕ КВАРТАЛЫ  /  ДЕНЬ",
-                "02     NIGHTSHIFT         ПРОМЫШЛЕННЫЙ ПОРТ  /  НОЧЬ",
-                "03     RIDGE                 ВОЕННАЯ БАЗА  /  СНЕГ",
-                "04     COMPOUND          ПРОМЫШЛЕННЫЙ КОМПЛЕКС  /  ДЕНЬ"][i]
-        b.alignment=HORIZONTAL_ALIGNMENT_LEFT
-        b.custom_minimum_size=Vector2(690,56)
-        _style_button(b,Color("152430"),Color("405d70"))
-        b.pressed.connect(_start_match.bind(i))
-        panel.add_child(b)
-    var foot=_make_label(panel,"5 НА 5   •   6 ВИДОВ ОРУЖИЯ   •   ДЫМ И ОСКОЛОЧНЫЕ ГРАНАТЫ",18,Color("9fb3bf"))
+    # Single quality-first arena. Prior box maps hidden until redesigned.
+    var b:=Button.new()
+    b.text="01      IRONWORKS       ТАКТИЧЕСКАЯ КАРТА  /  ТРИ МАРШРУТА"
+    b.alignment=HORIZONTAL_ALIGNMENT_LEFT
+    b.custom_minimum_size=Vector2(690,75)
+    _style_button(b,Color("152430"),Color("d4a673"))
+    b.pressed.connect(_start_match.bind(4))
+    panel.add_child(b)
+    var foot=_make_label(panel,"НОВАЯ АРЕНА   •   МАРШРУТЫ A / MID / B   •   БОМБА 5 НА 5",18,Color("9fb3bf"))
     foot.position.y+=9
     _make_label(panel,"WASD / SHIFT / CTRL     •     ЛКМ ОГОНЬ     •     ПКМ ПРИЦЕЛ    •    R ПЕРЕЗАРЯДКА",14,Color("8ca6b4"))
     _make_label(panel,"1–6 ОРУЖИЕ     •     B МАГАЗИН     •     G/H ГРАНАТЫ     •     ESC МЕНЮ",14,Color("8ca6b4"))
