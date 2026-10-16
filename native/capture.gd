@@ -1,30 +1,30 @@
 extends SceneTree
-
 func _initialize() -> void:
     call_deferred("_capture")
-
 func _capture() -> void:
-    var packed=load("res://main.tscn")
-    var game=packed.instantiate()
+    var game=load("res://main.tscn").instantiate()
     root.add_child(game)
     await process_frame
     game._start_match(4)
-    await create_timer(1.6).timeout
+    await create_timer(1.4).timeout
     game.running=false
-    var shots=[
-        {"pos":Vector3(0,1.2,36),"yaw":0.0,"pitch":-.03},
-        {"pos":Vector3(-27,1.2,7),"yaw":0.0,"pitch":-.04},
-        {"pos":Vector3(27,1.2,7),"yaw":0.0,"pitch":-.04},
-        {"pos":Vector3(-9,1.2,-10),"yaw":1.6,"pitch":-.025}
+    game.player.global_position=Vector3(0,1.2,24)
+    game.player.rotation.y=0.05
+    game.neck.rotation.x=-.035
+    var trials=[
+        {"r":Vector3(-.3,-.25,-.1),"p":Vector3(.25,-.18,-.75),"s":.70},
+        {"r":Vector3(-.4,-.10,-.1),"p":Vector3(.27,-.20,-.79),"s":.70},
+        {"r":Vector3(-.42,-.57,-.1),"p":Vector3(.29,-.20,-.80),"s":.70},
+        {"r":Vector3(-.45,-.85,-.1),"p":Vector3(.30,-.20,-.80),"s":.70}
     ]
-    for i in range(shots.size()):
-        var data=shots[i]
-        game.player.global_position=data["pos"]
-        game.player.rotation.y=data["yaw"]
-        game.neck.rotation.x=data["pitch"]
-        await create_timer(.45).timeout
+    for i in range(4):
+        var trial=trials[i]
+        game.gun_mesh.rotation=trial["r"]
+        game.gun_mesh.position=trial["p"]
+        game.gun_mesh.scale=Vector3.ONE*float(trial["s"])
+        await create_timer(.6).timeout
         var img=root.get_texture().get_image()
         img.save_png("res://build/CONTACT_ZERO_candidate_"+str(i+1)+".png")
-        print("RENDER_V5_OK ",i," ",img.get_width(),"x",img.get_height())
+        print("RIG_VARIANT "+str(i)+" rotation="+str(trial["r"]))
     root.get_texture().get_image().save_png("res://build/CONTACT_ZERO_qa.png")
     quit()
