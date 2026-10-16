@@ -20,8 +20,8 @@ func setup(world:Node3D,which:int) -> void:
     plant_progress=0
     defuse_progress=0
     carrier=null
-    site_a=Vector3(-13.3,0,0) if which==3 else Vector3(-18,0,-9)
-    site_b=Vector3(13.3,0,3) if which==3 else Vector3(18,0,10)
+    site_a=Vector3(-9,0,-11) if which==4 else Vector3(-13.3,0,0) if which==3 else Vector3(-18,0,-9)
+    site_b=Vector3(9,0,12) if which==4 else Vector3(13.3,0,3) if which==3 else Vector3(18,0,10)
     active_site=site_a
     for site_id in range(2):
         var pos=site_a if site_id==0 else site_b
