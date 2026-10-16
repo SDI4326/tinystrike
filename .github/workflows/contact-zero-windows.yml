@@ -61,9 +61,6 @@ jobs:
             curl -fL --retry 4 "${ART}/${FOLDER}/${FOLDER}_Color.jpg" -o "native/assets/tex/${NAME}_color.jpg"
             curl -fL --retry 4 "${ART}/${FOLDER}/${FOLDER}_NormalGL.jpg" -o "native/assets/tex/${NAME}_normal.jpg"
           done
-          mkdir -p native/assets/hilltown
-          curl -fL --retry 4 "https://cdn.3dassets.dev/assets/27595/v1/model.glb" -o native/assets/hilltown/fountain_square.glb
-          test "$(stat -c%s native/assets/hilltown/fountain_square.glb)" -gt 200000
           KEN="https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs"
           curl -fL --retry 4 "${KEN}/city-kit-roads/construction-fence.glb" -o native/assets/kenney/construction-fence.glb
           curl -fL --retry 4 "${KEN}/city-kit-roads/light-square.glb" -o native/assets/kenney/light-square.glb
