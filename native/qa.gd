@@ -144,6 +144,20 @@ func _verify() -> void:
         quit(1)
         return
     print("QA_PLAYER_WALK_OK distance_m=",snappedf(moved,.01))
+    for physical_lane_x in [-27.0,27.0]:
+        game.player.global_position=Vector3(physical_lane_x,1.2,36)
+        var start_lane=game.player.global_position.z
+        for frame in range(85):
+            await physics_frame
+            game.player.velocity=Vector3(0,-.5,-7.5)
+            game.player.move_and_slide()
+        var advanced=start_lane-game.player.global_position.z
+        if advanced<8.0:
+            push_error("V5: FLANK PHYSICALLY BLOCKED at x="+str(physical_lane_x)+" moved="+str(advanced))
+            quit(1)
+            return
+        print("QA_FLANK_WALK_OK x=",physical_lane_x," travelled=",snappedf(advanced,.1))
+
     for lane_x in [-27.,0.,27.]:
         var lane=game.nav_grid.route(Vector3(lane_x,1.2,36),Vector3(lane_x,1.2,-36))
         if lane.size()<45:
