@@ -146,7 +146,7 @@ func _reset_scene(which: int) -> void:
         [Color("435460"),Color("435864"),Color("536673")],
         [Color("b5c3cd"),Color("8394a2"),Color("9caebc")],
         [Color("978d7e"),Color("a5977f"),Color("aebbc5")],
-        [Color("9b9386"),Color("726d61"),Color("b7aa97")]
+        [Color("9b9386"),Color("727d85"),Color("8f9fa9")]
     ][which]
     sky_tint = colors[2]
     tex_floor = load("res://remaster.gd").textured("asphalt",colors[0],.16)
@@ -159,8 +159,8 @@ func _reset_scene(which: int) -> void:
     world.background_mode = Environment.BG_COLOR
     world.background_color = sky_tint
     world.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    world.ambient_light_color = Color("b7d9ec") if which == 1 else Color("fff2dc")
-    world.ambient_light_energy = .43 if which == 1 else .62
+    world.ambient_light_color = Color("b7d9ec") if which == 1 else Color("c4d0d9")
+    world.ambient_light_energy = .43 if which == 1 else .49
     world.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     world.fog_enabled = true
     world.fog_light_color = sky_tint
@@ -169,8 +169,8 @@ func _reset_scene(which: int) -> void:
     scene_root.add_child(env)
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-56,-38,0)
-    sun.light_color = Color("a8d8ff") if which == 1 else Color("ffe1b1")
-    sun.light_energy = .48 if which == 1 else .88
+    sun.light_color = Color("a8d8ff") if which == 1 else Color("e1e9ed")
+    sun.light_energy = .48 if which == 1 else .64
     sun.shadow_enabled = true
     scene_root.add_child(sun)
     if which==4:
