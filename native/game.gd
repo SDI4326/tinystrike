@@ -195,7 +195,7 @@ func _reset_scene(which: int) -> void:
             _building(Vector3(side*31,0,z),Vector3(14,8+abs(z)%5,14))
     for t in [[-8,-15,10,7],[11,12,10,7],[-12,14,4,6],[12,-20,6,5]]:
         _building(Vector3(t[0],0,t[1]),Vector3(t[2],t[3],8))
-    for q in [[-19,-22],[20,-22],[-20,0],[19,2],[-18,20],[18,22],[0,24],[1,-27],[0,-2]]:
+    for q in [[-19,-22],[20,-22],[-20,0],[19,2],[-18,20],[18,22],[1,-27],[0,-2]]:
         _box(scene_root,Vector3(q[0],.8,q[1]),Vector3(2.7,1.6,2.4),tex_metal)
     for z in [-29,29]:
         for x in [-26,26]:
@@ -557,7 +557,7 @@ func _make_bot(ally: bool,idx: int) -> void:
     bot.name=("ALLY_" if ally else "ENEMY_")+str(idx+1)
     bot.collision_layer=2
     bot.collision_mask=1|2|4
-    bot.position=Vector3((idx-2)*2.1,1.2,(-9.0 if not ally else 8.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
+    bot.position=Vector3((idx-2)*2.0,1.2,(-14.0 if not ally else 14.0)) if map_id==3 else Vector3((idx-2)*3.3 if not ally else (idx-1)*3.1,1.2,-28 if not ally else 23)
     var col:=CollisionShape3D.new()
     var shp:=CapsuleShape3D.new()
     shp.height=1.85
