@@ -6,25 +6,22 @@ func _capture() -> void:
     root.add_child(game)
     await process_frame
     game._start_match(4)
-    await create_timer(1.4).timeout
+    await create_timer(1.5).timeout
     game.running=false
-    game.player.global_position=Vector3(0,1.2,24)
-    game.player.rotation.y=0.05
-    game.neck.rotation.x=-.035
-    var trials=[
-        {"r":Vector3(-.43,-.75,-.10),"p":Vector3(.55,-.40,-.43),"s":.90},
-        {"r":Vector3(-.43,-.85,-.10),"p":Vector3(.56,-.43,-.40),"s":1.00},
-        {"r":Vector3(-.34,-.80,-.12),"p":Vector3(.60,-.49,-.39),"s":1.00},
-        {"r":Vector3(-.42,-.95,-.11),"p":Vector3(.63,-.52,-.36),"s":1.10}
+    var points=[
+        {"pos":Vector3(0,1.2,25),"yaw":.05,"pitch":-.04},
+        {"pos":Vector3(-27,1.2,5),"yaw":.01,"pitch":-.03},
+        {"pos":Vector3(27,1.2,5),"yaw":.0,"pitch":-.03},
+        {"pos":Vector3(-9,1.2,-10),"yaw":1.6,"pitch":-.045}
     ]
     for i in range(4):
-        var trial=trials[i]
-        game.gun_mesh.rotation=trial["r"]
-        game.gun_mesh.position=trial["p"]
-        game.gun_mesh.scale=Vector3.ONE*float(trial["s"])
-        await create_timer(.6).timeout
-        var img=root.get_texture().get_image()
-        img.save_png("res://build/CONTACT_ZERO_candidate_"+str(i+1)+".png")
-        print("RIG_VARIANT "+str(i)+" rotation="+str(trial["r"]))
+        var p=points[i]
+        game.player.global_position=p["pos"]
+        game.player.rotation.y=p["yaw"]
+        game.neck.rotation.x=p["pitch"]
+        await create_timer(.45).timeout
+        var im=root.get_texture().get_image()
+        im.save_png("res://build/CONTACT_ZERO_candidate_"+str(i+1)+".png")
+        print("V5_FINAL_RENDER_OK "+str(i))
     root.get_texture().get_image().save_png("res://build/CONTACT_ZERO_qa.png")
     quit()
