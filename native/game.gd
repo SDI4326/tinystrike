@@ -608,6 +608,18 @@ func _process(dt: float) -> void:
     game_time+=dt
     round_time=maxf(0,round_time-dt)
     fire_delay=maxf(0,fire_delay-dt)
+    grenade_time=maxf(0,grenade_time-dt)
+    for n in range(projectiles.size()-1,-1,-1):
+        var g:Dictionary=projectiles[n]
+        g["timer"]=float(g["timer"])-dt
+        if float(g["timer"])<=0.0:
+            _explode_grenade(g)
+            projectiles.remove_at(n)
+        else:
+            projectiles[n]=g
+    if is_instance_valid(crosshair_ui):
+        crosshair_ui.spread=lerpf(crosshair_ui.spread,0.0 if weapon_aim else clampf(current_speed*.6+recoil*9.0,0.0,20.0),dt*14)
+        crosshair_ui.scope=weapon_aim and weapon_idx==2
     recoil=move_toward(recoil,0,dt*4.2)
     running_bob+=dt*(10.0 if current_speed>8.0 else 6.2 if current_speed>.5 else 1.8)
     var bob=(sin(running_bob)*.017) if current_speed>.4 else 0.0
@@ -623,8 +635,9 @@ func _process(dt: float) -> void:
     elif current_speed>.5:_play_rig_anim("walk")
     else:_play_rig_anim("idle")
     gun_root.rotation.x=lerpf(gun_root.rotation.x,recoil*.12,dt*13)
-    if Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-        camera.fov=lerpf(camera.fov,57,dt*14)
+    weapon_aim=Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+    if weapon_aim:
+        camera.fov=lerpf(camera.fov,26 if weapon_idx==2 else 58,dt*14)
         gun_root.position.x=lerpf(gun_root.position.x,.06,dt*11)
     else:
         camera.fov=lerpf(camera.fov,75,dt*13)
@@ -632,7 +645,7 @@ func _process(dt: float) -> void:
     if reload_time>0:
         reload_time-=dt
         if reload_time<=0:
-            var add=mini(30-mag,reserve)
+            var add=mini(int(_weapon_data()["mag"])-mag,reserve)
             mag+=add
             reserve-=add
             hint_label.text="ПЕРЕЗАРЯДКА ЗАВЕРШЕНА"
@@ -646,7 +659,9 @@ func _process(dt: float) -> void:
     top_label.text="CONTACT ZERO    /    "+["BASTION","NIGHTSHIFT","RIDGE"][map_id]+"    |    ROUND "+str(score_blue+score_red+1)+"     "+time_text
     info_label.text="СИНИЕ  "+str(score_blue)+"  :  "+str(score_red)+"  КРАСНЫЕ       ПРОТИВНИКИ: "+str(remaining)
     hp_label.text="ЗДОРОВЬЕ "+str(int(health))+"    БРОНЯ "+str(int(armor))+"    $"+str(money)
-    ammo_label.text=str(mag)+" / "+str(reserve)+"     AK-74M"
+    ammo_label.text=str(mag)+" / "+str(reserve)+"   "+String(_weapon_data()["name"])
+    if is_instance_valid(grenade_label):
+        grenade_label.text="G  HE  ×"+str(grenade_he)+"    H  SMOKE  ×"+str(grenade_smoke)+"     [ B — МАГАЗИН ]"
     if remaining==0:
         score_blue+=1
         _finish("РАУНД ВЫИГРАН · ПРОТИВНИКИ УСТРАНЕНЫ")
@@ -660,7 +675,7 @@ func _shoot() -> void:
         _reload()
         return
     mag-=1
-    fire_delay=.115
+    fire_delay=float(_weapon_data()["interval"])
     last_shot=game_time
     recoil=1.0
     shot_anim_ends=game_time+.16
@@ -670,7 +685,7 @@ func _shoot() -> void:
     if is_instance_valid(audio_gun) and audio_gun.stream!=null:
         audio_gun.pitch_scale=rng.randf_range(.94,1.06)
         audio_gun.play()
-    neck.rotation.x=clampf(neck.rotation.x+.013,-1.40,1.4)
+    neck.rotation.x=clampf(neck.rotation.x+float(_weapon_data()["recoil"]),-1.40,1.4)
     var start=camera.global_position
     var end=start-camera.global_transform.basis.z*120
     var q=PhysicsRayQueryParameters3D.create(start,end)
@@ -679,8 +694,9 @@ func _shoot() -> void:
     if not hit.is_empty():
         var target=hit["collider"]
         if target is CharacterBody3D and target.has_meta("hp") and not target.get_meta("ally"):
-            _hurt_bot(target,32.0,player)
-            hint_label.text="ПОПАДАНИЕ +32"
+            _hurt_bot(target,float(_weapon_data()["damage"]),player)
+            hint_label.text="ПОПАДАНИЕ"
+            if is_instance_valid(crosshair_ui):crosshair_ui.hit_flash=.13
             if is_instance_valid(audio_hit) and audio_hit.stream!=null:audio_hit.play()
             cross.modulate=Color("f3b7a0")
     if mag==0:hint_label.text="МАГАЗИН ПУСТ — R"
@@ -711,8 +727,8 @@ func _hurt(amount: float) -> void:
         _finish("ВЫ ПОГИБЛИ · ПОПРОБУЙТЕ СНОВА")
 
 func _reload() -> void:
-    if reload_time<=0 and mag<30 and reserve>0:
-        reload_time=2.3
+    if reload_time<=0 and mag<int(_weapon_data()["mag"]) and reserve>0:
+        reload_time=float(_weapon_data()["reload"])
         _play_rig_anim("reload")
         hint_label.text="ПЕРЕЗАРЯДКА..."
 
@@ -730,6 +746,30 @@ func _unhandled_input(event: InputEvent) -> void:
             return
         if running:
             if event.physical_keycode==KEY_R:_reload()
+            if event.physical_keycode==KEY_G:_grenade_throw(false)
+            if event.physical_keycode==KEY_H:_grenade_throw(true)
+            if event.physical_keycode==KEY_1:_equip(0)
+            if event.physical_keycode==KEY_2:_equip(1)
+            if event.physical_keycode==KEY_3:_equip(2)
+            if event.physical_keycode==KEY_4:_equip(3)
+            if event.physical_keycode==KEY_5:_equip(4)
+            if event.physical_keycode==KEY_6:_equip(5)
+            if event.physical_keycode==KEY_F6:
+                gun_orientation-=.13
+                _equip(weapon_idx)
+                hint_label.text="ПОВОРОТ ОРУЖИЯ ВЛЕВО: "+str(rad_to_deg(gun_orientation))+"°"
+            if event.physical_keycode==KEY_F7:
+                gun_orientation+=.13
+                _equip(weapon_idx)
+                hint_label.text="ПОВОРОТ ОРУЖИЯ ВПРАВО: "+str(rad_to_deg(gun_orientation))+"°"
+            if event.physical_keycode==KEY_F8:
+                gun_orientation=0
+                _equip(weapon_idx)
+                hint_label.text="ПОЛОЖЕНИЕ ОРУЖИЯ СБРОШЕНО"
+            if event.physical_keycode==KEY_B:
+                running=false
+                buy_overlay.show()
+                Input.mouse_mode=Input.MOUSE_MODE_VISIBLE
             if event.physical_keycode==KEY_F:hint_label.text="CONTACT ZERO · NATIVE"
         else:
             if event.physical_keycode==KEY_1:_start_match(0)
@@ -811,8 +851,13 @@ func _start_match(which: int) -> void:
     fps_anim_name=""
     shot_anim_ends=0.0
     damage_flash_time=0.0
-    mag=30
-    reserve=150
+    weapon_idx=0
+    _equip(0)
+    mag=int(_weapon_data()["mag"])
+    reserve=int(_weapon_data()["reserve"])
+    grenade_he=2
+    grenade_smoke=1
+    projectiles.clear()
     reload_time=0
     round_time=180
     running=true
