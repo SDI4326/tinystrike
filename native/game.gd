@@ -152,7 +152,7 @@ func _reset_scene(which: int) -> void:
     world.background_color = sky_tint
     world.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     world.ambient_light_color = Color("b7d9ec") if which == 1 else Color("fff2dc")
-    world.ambient_light_energy = .8 if which == 1 else 1.2
+    world.ambient_light_energy = .43 if which == 1 else .62
     world.tonemap_mode = Environment.TONE_MAPPER_FILMIC
     world.fog_enabled = true
     world.fog_light_color = sky_tint
@@ -162,7 +162,7 @@ func _reset_scene(which: int) -> void:
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-56,-38,0)
     sun.light_color = Color("a8d8ff") if which == 1 else Color("ffe1b1")
-    sun.light_energy = .70 if which == 1 else 1.35
+    sun.light_energy = .48 if which == 1 else .88
     sun.shadow_enabled = true
     scene_root.add_child(sun)
     _box(scene_root,Vector3(0,-.5,0),Vector3(84,1,84),tex_floor)
