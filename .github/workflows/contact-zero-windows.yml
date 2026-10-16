@@ -2,7 +2,7 @@ name: CONTACT ZERO Windows EXE
 on:
   push:
     branches:
-      - contact-zero-native-windows
+      - contact-zero-native-remaster
     paths:
       - 'native/**'
       - '.github/workflows/contact-zero-windows.yml'
@@ -40,6 +40,50 @@ jobs:
           curl -fL --retry 4 "${ORIGIN}/soldier_t.glb" -o native/assets/soldier_t.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/ak47.glb" -o native/assets/ak47.glb
           curl -fL --retry 4 "${ORIGIN}/viewmodels/npc-arms-ct.glb" -o native/assets/npc-arms-ct.glb
+      - name: Download PBR terrain, CC0 industrial props and FPS hand animations
+        run: |
+          set -euxo pipefail
+          mkdir -p native/assets/tex native/assets/kenney native/assets/rig native/assets/sfx
+          ART="https://raw.githubusercontent.com/petroulacl/fps-buildings-env-kit/main/environment/ground-textures/ambientcg"
+          for PAIR in "Asphalt021_2K-JPG asphalt" "Concrete012_2K-JPG concrete" "Metal063_2K-JPG metal"; do
+            set -- $PAIR
+            FOLDER="$1"
+            NAME="$2"
+            PREFIX="${FOLDER%%_*}"
+            curl -fL --retry 4 "${ART}/${FOLDER}/${FOLDER}_Color.jpg" -o "native/assets/tex/${NAME}_color.jpg"
+            curl -fL --retry 4 "${ART}/${FOLDER}/${FOLDER}_NormalGL.jpg" -o "native/assets/tex/${NAME}_normal.jpg"
+          done
+          KEN="https://raw.githubusercontent.com/Hidencod/tge-assets/main/packs"
+          curl -fL --retry 4 "${KEN}/city-kit-roads/construction-fence.glb" -o native/assets/kenney/construction-fence.glb
+          curl -fL --retry 4 "${KEN}/city-kit-roads/light-square.glb" -o native/assets/kenney/light-square.glb
+          curl -fL --retry 4 "${KEN}/prototype-kit/crate.glb" -o native/assets/kenney/crate.glb
+          curl -fL --retry 4 "${KEN}/space-kit/pipe-straight.glb" -o native/assets/kenney/pipe-straight.glb
+          SFX="https://raw.githubusercontent.com/petroulacl/fps-asset-kit/main/sfx/gunshots"
+          curl -fL --retry 4 "${SFX}/game_gunshot.wav" -o native/assets/sfx/gunshot.wav
+          curl -fL --retry 4 "https://raw.githubusercontent.com/GeorgeQLe/assets-sfx-combat/main/assets/kenney/impact-sounds/Audio/impactGeneric_light_000.ogg" -o native/assets/sfx/hit.ogg
+          RIG="https://raw.githubusercontent.com/Ayush-Mohanty/FPS-Arms-3D/main/Models/fps_ak-74m_animations"
+          curl -fL --retry 4 "${RIG}/scene.gltf" -o native/assets/rig/scene.gltf
+          curl -fL --retry 4 "${RIG}/scene.bin" -o native/assets/rig/scene.bin
+          for I in 0 1 2 3 4 5 6; do
+            curl -fL --retry 4 "${RIG}/scene_${I}.png" -o "native/assets/rig/scene_${I}.png"
+          done
+          python3 -m pip install --quiet pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json
+          base=Path('native/assets')
+          for p in list((base/'rig').glob('*.png'))+list((base/'tex').glob('*.jpg')):
+              im=Image.open(p)
+              im.thumbnail((1024,1024),Image.Resampling.LANCZOS)
+              im.save(p,quality=85) if p.suffix=='.jpg' else im.save(p,optimize=True)
+              print('optimized',p,im.size)
+          gltf=json.loads((base/'rig/scene.gltf').read_text())
+          print('Authored AK animations:',[a['name'] for a in gltf.get('animations',[])])
+          for im in gltf.get('images',[]):
+              source=base/'rig'/im['uri']
+              assert source.exists(), f'GLTF texture missing: {source}'
+          PY
       - name: Import project and verify Godot scripts
         run: |
           set -euxo pipefail
@@ -56,6 +100,12 @@ jobs:
             echo "Godot scene startup test failed."
             exit 1
           fi
+      - name: In-engine game QA across all 3 maps
+        run: |
+          set -euxo pipefail
+          ./Godot_v4.4.1-stable_linux.x86_64 --headless --path native --script res://qa.gd 2>&1 | tee qa.log
+          grep -q "NATIVE_QA_SUCCESS" qa.log
+          if grep -qE 'SCRIPT ERROR:|Parse Error:|Invalid call|ERROR: Cannot open|ERROR: Failed to' qa.log; then exit 1; fi
       - name: Export native Windows executable
         run: |
           set -euxo pipefail
@@ -92,9 +142,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="contact-zero-native-windows-v1"
+          TAG="contact-zero-native-windows-v2"
           if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             gh release upload "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --clobber --repo "${{ github.repository }}"
           else
-            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "Godot 4.4.1 native PC prototype. Unzip and double-click CONTACT_ZERO.exe. No browser needed." --repo "${{ github.repository }}"
+            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "CONTACT ZERO v2 remaster. PBR maps, authored Cransh CC-BY skinned AK-74M arms with animations, upgraded AI and combat effects. Native Windows. Unzip and double-click CONTACT_ZERO.exe." --repo "${{ github.repository }}"
           fi
