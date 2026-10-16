@@ -2,7 +2,7 @@ name: CONTACT ZERO Windows EXE
 on:
   push:
     branches:
-      - contact-zero-native-v3
+      - contact-zero-native-v4-development
     paths:
       - 'native/**'
       - '.github/workflows/contact-zero-windows.yml'
@@ -205,15 +205,5 @@ jobs:
           name: CONTACT_ZERO_WINDOWS
           path: native/build/CONTACT_ZERO_WINDOWS.zip
           if-no-files-found: error
-      - name: Publish public GitHub release download
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="contact-zero-native-windows-v3"
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            gh release upload "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --clobber --repo "${{ github.repository }}"
-            if test -s native/build/CONTACT_ZERO_qa.png; then gh release upload "$TAG" native/build/CONTACT_ZERO_qa.png --clobber --repo "${{ github.repository }}"; fi
-          else
-            gh release create "$TAG" native/build/CONTACT_ZERO_WINDOWS.zip --target "${{ github.sha }}" --title "CONTACT ZERO - Native Windows x64" --notes "CONTACT ZERO v3: 14 CC0 3D building models, 6 weapons, animated AK FPS hands, physics HE and smoke grenades, tactical menu, reticle, improved maps and bots. Download Windows EXE ZIP." --repo "${{ github.repository }}"
-          if test -s native/build/CONTACT_ZERO_qa.png; then gh release upload "$TAG" native/build/CONTACT_ZERO_qa.png --clobber --repo "${{ github.repository }}"; fi
-          fi
+      - name: Development build only — keep unpublished
+        run: echo "Windows ZIP stays in GitHub Actions artifacts until visual and gameplay QA pass."
