@@ -47,5 +47,48 @@ func _verify() -> void:
             quit(1)
             return
         game.running=false
-    print("NATIVE_QA_SUCCESS 3/3 maps, animations, shooting, reload, bots")
+    game._start_match(0)
+    await process_frame
+    await process_frame
+    for i in range(6):
+        game._equip(i)
+        await process_frame
+        if not is_instance_valid(game.gun_mesh):
+            push_error("QA: Weapon model missing "+str(i))
+            quit(1)
+            return
+        var capacity=int(game.GUNS[i]["mag"])
+        if game.mag!=capacity:
+            push_error("QA: Wrong magazine "+str(i))
+            quit(1)
+            return
+        game.fire_delay=0.0
+        game._shoot()
+        if game.mag!=capacity-1:
+            push_error("QA: Gun failed to fire "+str(i))
+            quit(1)
+            return
+        game._reload()
+        if game.reload_time<=0:
+            push_error("QA: Gun failed reload "+str(i))
+            quit(1)
+            return
+        print("QA_GUN_OK ",i," model=",game.GUNS[i]["model"])
+    game.grenade_time=0.0
+    game._grenade_throw(false)
+    if game.projectiles.size()!=1:
+        push_error("QA: Frag grenade failed")
+        quit(1)
+        return
+    game.grenade_time=0.0
+    game._grenade_throw(true)
+    if game.projectiles.size()!=2:
+        push_error("QA: Smoke grenade failed")
+        quit(1)
+        return
+    if not is_instance_valid(game.crosshair_ui) or not is_instance_valid(game.buy_overlay):
+        push_error("QA: HUD reticle or buy menu missing")
+        quit(1)
+        return
+    print("NATIVE_QA_SUCCESS 3 maps, 6 guns, 2 grenade types, reticle, menu, animations, shooting, reload, bots")
     quit(0)
